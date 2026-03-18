@@ -25,9 +25,9 @@ class LocalEmbeddings(Embeddings):
         return embedding[0].tolist()
 
 
-def _make_chunk_id(source: str, chunk_index: int) -> str:
-    """Create a deterministic ID from source and chunk index to prevent duplicates."""
-    key = f"{source}::{chunk_index}"
+def _make_chunk_id(source: str, page: int | str, chunk_index: int) -> str:
+    """Create a deterministic ID from source, page, and chunk index to prevent duplicates."""
+    key = f"{source}::p{page}::c{chunk_index}"
     return hashlib.sha256(key.encode()).hexdigest()
 
 
@@ -43,21 +43,41 @@ def get_vectorstore(embedding_fn: Embeddings | None = None) -> Chroma:
     )
 
 
-def ingest(chunks: list[Document], embedding_fn: Embeddings | None = None) -> int:
+def get_collection_count(embedding_fn: Embeddings | None = None) -> int:
+    """Get the number of documents in the collection."""
+    try:
+        vs = get_vectorstore(embedding_fn)
+        return vs._collection.count()
+    except Exception:
+        return 0
+
+
+def ingest(chunks: list[Document], embedding_fn: Embeddings | None = None, batch_size: int = 100) -> int:
     """Embed and store document chunks in ChromaDB.
 
     Returns the number of chunks ingested.
     Uses deterministic IDs to prevent duplicate ingestion.
+    Processes in batches to handle large document sets.
     """
     if not chunks:
         return 0
 
     vectorstore = get_vectorstore(embedding_fn)
+    total = 0
 
-    ids = [
-        _make_chunk_id(chunk.metadata.get("source", "unknown"), chunk.metadata.get("chunk_index", i))
-        for i, chunk in enumerate(chunks)
-    ]
+    for start in range(0, len(chunks), batch_size):
+        batch = chunks[start:start + batch_size]
 
-    vectorstore.add_documents(documents=chunks, ids=ids)
-    return len(chunks)
+        ids = [
+            _make_chunk_id(
+                chunk.metadata.get("source", "unknown"),
+                chunk.metadata.get("page", 0),
+                chunk.metadata.get("chunk_index", start + i),
+            )
+            for i, chunk in enumerate(batch)
+        ]
+
+        vectorstore.add_documents(documents=batch, ids=ids)
+        total += len(batch)
+
+    return total

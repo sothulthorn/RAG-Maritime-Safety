@@ -1,8 +1,4 @@
-"""Tests for the retrieval pipeline."""
-
-import shutil
-import tempfile
-import os
+"""Tests for the hybrid retrieval pipeline."""
 
 import pytest
 from langchain_core.documents import Document
@@ -10,7 +6,7 @@ from langchain_core.documents import Document
 import config
 from ingestion.embedder import LocalEmbeddings, ingest, get_vectorstore
 from ingestion.chunker import chunk_documents
-from retrieval.retriever import retrieve
+from retrieval.retriever import retrieve, _reciprocal_rank_fusion, _tokenize
 
 
 @pytest.fixture
@@ -44,11 +40,42 @@ def test_similar_embeddings(embedding_fn):
     assert sim_close > sim_far
 
 
-def test_ingest_and_retrieve(temp_chroma, embedding_fn):
-    """Ingest documents and retrieve relevant chunks."""
+def test_tokenize():
+    """BM25 tokenizer splits and lowercases."""
+    tokens = _tokenize("SOLAS Regulation 7.2")
+    assert "solas" in tokens
+    assert "regulation" in tokens
+
+
+def test_reciprocal_rank_fusion():
+    """RRF merges two ranked lists correctly."""
+    doc_a = Document(page_content="Fire safety", metadata={})
+    doc_b = Document(page_content="Life saving", metadata={})
+    doc_c = Document(page_content="Navigation", metadata={})
+
+    vector_docs = [doc_a, doc_b]
+    bm25_docs = [doc_b, doc_c]
+
+    fused = _reciprocal_rank_fusion(vector_docs, bm25_docs)
+    # doc_b appears in both lists, should rank highest
+    assert fused[0].page_content == "Life saving"
+    assert len(fused) == 3
+
+
+def test_ingest_and_retrieve(temp_chroma, embedding_fn, monkeypatch):
+    """Ingest documents and retrieve relevant chunks with hybrid search."""
+    # Disable reranker for this test to avoid loading cross-encoder
+    monkeypatch.setattr(config, "RERANKER_ENABLED", False)
+
     docs = [
-        Document(page_content="SOLAS Chapter II-2 covers fire protection, fire detection and fire extinction on ships.", metadata={"source": "solas.pdf", "page": 1}),
-        Document(page_content="MARPOL Annex VI addresses air pollution from ships including SOx and NOx emissions.", metadata={"source": "marpol.pdf", "page": 5}),
+        Document(
+            page_content="SOLAS Chapter II-2 covers fire protection, fire detection and fire extinction on ships.",
+            metadata={"source": "solas.pdf", "page": 1, "organization": "sample"},
+        ),
+        Document(
+            page_content="MARPOL Annex VI addresses air pollution from ships including SOx and NOx emissions.",
+            metadata={"source": "marpol.pdf", "page": 5, "organization": "sample"},
+        ),
     ]
     chunks = chunk_documents(docs)
     count = ingest(chunks, embedding_fn=embedding_fn)

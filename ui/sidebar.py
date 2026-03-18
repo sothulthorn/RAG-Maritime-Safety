@@ -1,13 +1,11 @@
-"""Document upload and management sidebar."""
-
-import os
-import tempfile
+"""Sidebar: collection stats, source filtering, and ingestion controls."""
 
 import streamlit as st
 
-from ingestion.loader import load_document
+from config import SOURCE_ORGS
+from ingestion.loader import load_all_documents, list_data_files
 from ingestion.chunker import chunk_documents
-from ingestion.embedder import ingest, get_vectorstore, LocalEmbeddings
+from ingestion.embedder import ingest, get_vectorstore, get_collection_count, LocalEmbeddings
 
 
 def _get_embedding_fn():
@@ -17,96 +15,86 @@ def _get_embedding_fn():
     return st.session_state.embedding_fn
 
 
-def _ingest_file(uploaded_file):
-    """Process and ingest an uploaded file."""
-    suffix = os.path.splitext(uploaded_file.name)[1]
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        tmp.write(uploaded_file.getvalue())
-        tmp_path = tmp.name
-
-    try:
-        docs = load_document(tmp_path)
-        # Replace temp path metadata with original filename
-        for doc in docs:
-            doc.metadata["source"] = uploaded_file.name
-            if "file_path" in doc.metadata:
-                doc.metadata["file_path"] = uploaded_file.name
-
-        chunks = chunk_documents(docs)
-        count = ingest(chunks, embedding_fn=_get_embedding_fn())
-        return count
-    finally:
-        os.unlink(tmp_path)
-
-
-def _ingest_url(url: str):
-    """Process and ingest a web URL."""
-    docs = load_document(url)
-    chunks = chunk_documents(docs)
-    return ingest(chunks, embedding_fn=_get_embedding_fn())
-
-
-def _get_collection_stats():
-    """Get document count from ChromaDB."""
-    try:
-        vs = get_vectorstore(_get_embedding_fn())
-        collection = vs._collection
-        return collection.count()
-    except Exception:
-        return 0
-
-
 def render_sidebar():
     """Render the document management sidebar."""
-    st.sidebar.header("Document Management")
+    st.sidebar.header("Maritime Safety RAG")
 
-    # File upload
-    st.sidebar.subheader("Upload Documents")
-    uploaded_files = st.sidebar.file_uploader(
-        "Upload PDF, TXT, or MD files",
-        type=["pdf", "txt", "md"],
-        accept_multiple_files=True,
-        key="file_uploader",
+    # --- Source Filter ---
+    st.sidebar.subheader("Source Filter")
+    filter_options = {"All Sources": None}
+    for key, label in SOURCE_ORGS.items():
+        filter_options[label] = key
+
+    selected_label = st.sidebar.selectbox(
+        "Filter answers by source",
+        options=list(filter_options.keys()),
+        key="source_filter_select",
     )
+    st.session_state.source_filter = filter_options[selected_label]
 
-    if uploaded_files and st.sidebar.button("Ingest Files", key="ingest_files"):
-        total_chunks = 0
-        progress = st.sidebar.progress(0)
-        for i, f in enumerate(uploaded_files):
-            try:
-                count = _ingest_file(f)
-                total_chunks += count
-                st.sidebar.success(f"{f.name}: {count} chunks")
-            except Exception as e:
-                st.sidebar.error(f"{f.name}: {e}")
-            progress.progress((i + 1) / len(uploaded_files))
-        if total_chunks:
-            st.sidebar.info(f"Total: {total_chunks} chunks ingested")
-
-    # URL ingestion
-    st.sidebar.subheader("Ingest from URL")
-    url = st.sidebar.text_input("Enter a web URL", key="url_input")
-    if url and st.sidebar.button("Ingest URL", key="ingest_url"):
-        try:
-            with st.sidebar:
-                with st.spinner("Fetching and ingesting..."):
-                    count = _ingest_url(url)
-                st.success(f"Ingested {count} chunks from URL")
-        except Exception as e:
-            st.sidebar.error(f"Failed to ingest URL: {e}")
-
-    # Collection stats
+    # --- Collection Stats ---
     st.sidebar.divider()
-    st.sidebar.subheader("Collection Info")
-    chunk_count = _get_collection_stats()
-    st.sidebar.metric("Total Chunks in Database", chunk_count)
+    st.sidebar.subheader("Document Database")
+    chunk_count = get_collection_count(_get_embedding_fn())
+    st.sidebar.metric("Total Chunks", chunk_count)
 
-    # Clear collection
-    if chunk_count > 0 and st.sidebar.button("Clear All Documents", type="secondary"):
+    # Show available data files
+    data_files = list_data_files()
+    if data_files:
+        with st.sidebar.expander("Available Data Files"):
+            for org, files in data_files.items():
+                label = SOURCE_ORGS.get(org, org.upper())
+                st.markdown(f"**{label}**: {len(files)} files")
+    else:
+        st.sidebar.warning("No data files found in data/ directory. Run the scraper first.")
+
+    # --- Ingest Button ---
+    st.sidebar.divider()
+    if chunk_count == 0:
+        st.sidebar.warning("Database is empty. Click below to ingest documents.")
+
+    if st.sidebar.button("Ingest All Documents", type="primary", key="ingest_btn"):
+        _run_ingestion()
+
+    # --- Clear Button ---
+    if chunk_count > 0 and st.sidebar.button("Clear Database", type="secondary", key="clear_btn"):
         try:
             vs = get_vectorstore(_get_embedding_fn())
             vs.delete_collection()
-            st.sidebar.success("Collection cleared")
+            st.sidebar.success("Database cleared.")
             st.rerun()
         except Exception as e:
             st.sidebar.error(f"Failed to clear: {e}")
+
+
+def _run_ingestion():
+    """Load, chunk, and ingest all documents from data/ directory."""
+    with st.sidebar:
+        with st.spinner("Loading documents from data/ ..."):
+            docs = load_all_documents()
+
+        if not docs:
+            st.error("No documents found in data/ directory.")
+            return
+
+        st.info(f"Loaded {len(docs)} document pages. Chunking...")
+
+        with st.spinner("Chunking documents..."):
+            chunks = chunk_documents(docs)
+
+        st.info(f"Created {len(chunks)} chunks. Embedding and storing...")
+
+        progress = st.progress(0)
+        embedding_fn = _get_embedding_fn()
+        batch_size = 100
+        total_ingested = 0
+
+        for start in range(0, len(chunks), batch_size):
+            batch = chunks[start:start + batch_size]
+            count = ingest(batch, embedding_fn=embedding_fn, batch_size=len(batch))
+            total_ingested += count
+            progress.progress(min(1.0, (start + batch_size) / len(chunks)))
+
+        progress.progress(1.0)
+        st.success(f"Ingested {total_ingested} chunks into the database.")
+        st.rerun()

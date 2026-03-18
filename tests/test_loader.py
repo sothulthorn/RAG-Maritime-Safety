@@ -5,7 +5,7 @@ import tempfile
 
 import pytest
 
-from ingestion.loader import load_text, load_pdf, load_document
+from ingestion.loader import load_text, load_document, _detect_organization, list_data_files
 
 
 def test_load_text_file():
@@ -50,6 +50,15 @@ def test_load_document_dispatcher_txt():
 
 
 def test_load_document_unsupported():
-    """Unsupported extensions raise ValueError."""
-    with pytest.raises(ValueError, match="Unsupported file type"):
-        load_document("file.xyz")
+    """Unsupported extensions return empty list."""
+    docs = load_document("file.xyz")
+    assert docs == []
+
+
+def test_detect_organization():
+    """Organization detection from file paths."""
+    assert _detect_organization("/data/maib/report.pdf") == "maib"
+    assert _detect_organization("/data/ntsb/MAR2101.pdf") == "ntsb"
+    assert _detect_organization("/data/tsb/M23C0305.pdf") == "tsb"
+    assert _detect_organization("/data/sample/solas.txt") == "sample"
+    assert _detect_organization("/data/other/file.pdf") == "other"
