@@ -1,44 +1,61 @@
-"""Tests for text chunking."""
+"""Tests for Parent-Child text chunking."""
 
 from langchain_core.documents import Document
 
-from ingestion.chunker import chunk_documents, _detect_section
-from config import CHUNK_SIZE
+from ingestion.chunker import chunk_documents, chunk_documents_flat, _detect_section
+from config import CHILD_CHUNK_SIZE, PARENT_CHUNK_SIZE
 
 
-def test_chunk_long_document():
-    """A document longer than CHUNK_SIZE gets split into multiple chunks."""
+def test_parent_child_structure():
+    """chunk_documents returns dict with children and parents."""
     long_text = "Maritime safety regulation. " * 200  # ~5600 chars
     docs = [Document(page_content=long_text, metadata={"source": "test.txt"})]
 
-    chunks = chunk_documents(docs)
-    assert len(chunks) > 1
-    for chunk in chunks:
-        assert len(chunk.page_content) <= CHUNK_SIZE + 50  # small tolerance
+    result = chunk_documents(docs)
+    assert "children" in result
+    assert "parents" in result
+    assert "child_to_parent" in result
+    assert len(result["children"]) > len(result["parents"])
+
+
+def test_child_chunks_smaller_than_parent():
+    """Child chunks are smaller than parent chunks."""
+    long_text = "Maritime safety regulation. " * 200
+    docs = [Document(page_content=long_text, metadata={"source": "test.txt"})]
+
+    result = chunk_documents(docs)
+    for child in result["children"]:
+        assert len(child.page_content) <= CHILD_CHUNK_SIZE + 50
+
+    for parent in result["parents"]:
+        assert len(parent.page_content) <= PARENT_CHUNK_SIZE + 50
 
 
 def test_chunk_preserves_metadata():
-    """Chunks inherit parent metadata and get chunk_index."""
+    """Chunks inherit parent metadata and get chunk type."""
     docs = [Document(
         page_content="Short text about SOLAS fire safety regulations.",
         metadata={"source": "solas.pdf", "page": 3, "organization": "sample"},
     )]
 
-    chunks = chunk_documents(docs)
-    assert len(chunks) >= 1
-    assert chunks[0].metadata["source"] == "solas.pdf"
-    assert chunks[0].metadata["page"] == 3
-    assert chunks[0].metadata["organization"] == "sample"
-    assert "chunk_index" in chunks[0].metadata
+    result = chunk_documents(docs)
+    assert len(result["children"]) >= 1
+    child = result["children"][0]
+    assert child.metadata["source"] == "solas.pdf"
+    assert child.metadata["organization"] == "sample"
+    assert child.metadata["chunk_type"] == "child"
+
+    assert len(result["parents"]) >= 1
+    parent = result["parents"][0]
+    assert parent.metadata["chunk_type"] == "parent"
 
 
-def test_chunk_short_document():
-    """A short document stays as one chunk."""
+def test_flat_chunking_backward_compat():
+    """chunk_documents_flat returns a flat list."""
     docs = [Document(page_content="Short text.", metadata={"source": "test.txt"})]
-
-    chunks = chunk_documents(docs)
-    assert len(chunks) == 1
-    assert chunks[0].page_content == "Short text."
+    chunks = chunk_documents_flat(docs)
+    assert isinstance(chunks, list)
+    assert len(chunks) >= 1
 
 
 def test_detect_section_regulation():

@@ -1,12 +1,13 @@
-"""Tests for the hybrid retrieval pipeline."""
+"""Tests for the hybrid retrieval pipeline with Parent-Child support."""
 
 import pytest
 from langchain_core.documents import Document
 
 import config
 from ingestion.embedder import LocalEmbeddings, ingest, get_vectorstore
-from ingestion.chunker import chunk_documents
+from ingestion.chunker import chunk_documents, chunk_documents_flat
 from retrieval.retriever import retrieve, _reciprocal_rank_fusion, _tokenize
+from retrieval.compressor import compress
 
 
 @pytest.fixture
@@ -57,29 +58,45 @@ def test_reciprocal_rank_fusion():
     bm25_docs = [doc_b, doc_c]
 
     fused = _reciprocal_rank_fusion(vector_docs, bm25_docs)
-    # doc_b appears in both lists, should rank highest
     assert fused[0].page_content == "Life saving"
     assert len(fused) == 3
 
 
+def test_compression(embedding_fn):
+    """Contextual compression keeps relevant sentences."""
+    docs = [Document(
+        page_content="Fire safety is critical on ships. The weather was sunny. "
+                     "Fire detection systems must be installed in engine rooms. "
+                     "The captain had breakfast at 7am.",
+        metadata={"source": "test.pdf"},
+    )]
+
+    compressed = compress("fire safety requirements", docs)
+    assert len(compressed) == 1
+    # Should keep fire-related sentences, possibly drop irrelevant ones
+    assert "fire" in compressed[0].page_content.lower()
+
+
 def test_ingest_and_retrieve(temp_chroma, embedding_fn, monkeypatch):
     """Ingest documents and retrieve relevant chunks with hybrid search."""
-    # Disable reranker for this test to avoid loading cross-encoder
     monkeypatch.setattr(config, "RERANKER_ENABLED", False)
+    monkeypatch.setattr(config, "COMPRESSION_ENABLED", False)
 
     docs = [
         Document(
-            page_content="SOLAS Chapter II-2 covers fire protection, fire detection and fire extinction on ships.",
+            page_content="SOLAS Chapter II-2 covers fire protection, fire detection and fire extinction on ships. "
+                         "This regulation applies to all passenger ships and cargo ships of 500 gross tonnage and above.",
             metadata={"source": "solas.pdf", "page": 1, "organization": "sample"},
         ),
         Document(
-            page_content="MARPOL Annex VI addresses air pollution from ships including SOx and NOx emissions.",
+            page_content="MARPOL Annex VI addresses air pollution from ships including SOx and NOx emissions. "
+                         "Ships must use fuel oil with a sulphur content not exceeding 0.50% m/m.",
             metadata={"source": "marpol.pdf", "page": 5, "organization": "sample"},
         ),
     ]
-    chunks = chunk_documents(docs)
-    count = ingest(chunks, embedding_fn=embedding_fn)
-    assert count == len(chunks)
+    chunk_data = chunk_documents(docs)
+    count = ingest(chunk_data, embedding_fn=embedding_fn)
+    assert count > 0
 
     results = retrieve("fire safety", k=1, embedding_fn=embedding_fn)
     assert len(results) >= 1

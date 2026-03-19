@@ -1,0 +1,483 @@
+{
+  "timestamp": "2026-03-18T18:54:04.128823",
+  "model": "llama3",
+  "num_questions": 5,
+  "llm_judge_enabled": true,
+  "summary": {
+    "rag": {
+      "key_fact_coverage": {
+        "mean": 0.533,
+        "min": 0.0,
+        "max": 0.75
+      },
+      "citation_accuracy": {
+        "mean": 1.0,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "source_grounding": {
+        "mean": 0.59,
+        "min": 0.417,
+        "max": 0.818
+      },
+      "faithfulness_score": {
+        "mean": 0.96,
+        "min": 0.9,
+        "max": 1.0
+      },
+      "hallucination_score": {
+        "mean": 0.6,
+        "min": 0.0,
+        "max": 1.0
+      },
+      "relevance_score": {
+        "mean": 0.92,
+        "min": 0.8,
+        "max": 1.0
+      },
+      "avg_response_time": 8.32
+    },
+    "plain_llm": {
+      "key_fact_coverage": {
+        "mean": 0.267,
+        "min": 0.0,
+        "max": 0.75
+      },
+      "citation_accuracy": {
+        "mean": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "source_grounding": {
+        "mean": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "faithfulness_score": {
+        "mean": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "hallucination_score": {
+        "mean": 1.0,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "relevance_score": {
+        "mean": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "avg_response_time": 3.94
+    },
+    "comparison": {
+      "key_fact_coverage": {
+        "rag_wins": 3,
+        "plain_llm_wins": 1,
+        "ties": 1
+      },
+      "citation_accuracy": {
+        "rag_wins": 5,
+        "plain_llm_wins": 0,
+        "ties": 0
+      },
+      "source_grounding": {
+        "rag_wins": 5,
+        "plain_llm_wins": 0,
+        "ties": 0
+      },
+      "faithfulness_score": {
+        "rag_wins": 5,
+        "plain_llm_wins": 0,
+        "ties": 0
+      },
+      "hallucination_score": {
+        "rag_wins": 0,
+        "plain_llm_wins": 2,
+        "ties": 3
+      },
+      "relevance_score": {
+        "rag_wins": 5,
+        "plain_llm_wins": 0,
+        "ties": 0
+      }
+    },
+    "by_category": {
+      "specific_incident": {
+        "rag": {
+          "key_fact_coverage": 0.533,
+          "citation_accuracy": 1.0,
+          "source_grounding": 0.59,
+          "faithfulness_score": 0.96,
+          "hallucination_score": 0.6,
+          "relevance_score": 0.92
+        },
+        "plain_llm": {
+          "key_fact_coverage": 0.267,
+          "citation_accuracy": 0.0,
+          "source_grounding": 0.0,
+          "faithfulness_score": 0.0,
+          "hallucination_score": 1.0,
+          "relevance_score": 0.0
+        }
+      }
+    }
+  },
+  "results": [
+    {
+      "id": "incident_01",
+      "question": "What happened to the tug Biter?",
+      "category": "specific_incident",
+      "ground_truth": "The tug Biter capsized and sank while assisting the passenger vessel Hebridean Princess, resulting in the loss of two lives.",
+      "rag": {
+        "answer": "According to the investigation report (Source: 2024-17-Biter-HebrideanPrincess.pdf, Page 9, Org: MAIB), the tug Biter girted and capsized off Greenock, Scotland while attached to the stern of the passenger vessel Hebridean Princess.",
+        "sources": [
+          {
+            "source": "2024-17-Biter-HebrideanPrincess.pdf",
+            "snippet": "1\nSYNOPSIS\nAt about 1527 on 24 February 2023, the twin screw conventional tug Biter girted and \ncapsized\toff\tGreenock,\tScotland\twhile\tattached\tto\tthe\tstern\tof\tthe\tpassenger\tvessel\t\nHebridean Princess,",
+            "page": 9,
+            "organization": "MAIB"
+          },
+          {
+            "source": "2024-17-Biter-HebrideanPrincess.pdf",
+            "snippet": "By 1550, seven vessels were at the scene and this group was later joined by a \ncoastguard search and rescue helicopter. At 1555, the inverted Biter began to list \nand, at 1602, the tug sank.\nFigure 6:",
+            "page": 17,
+            "organization": "MAIB"
+          },
+          {
+            "source": "2024-17-Biter-HebrideanPrincess.pdf",
+            "snippet": "10\nLater that afternoon a commercial diver inspected Biter, which was resting upright on \nthe\tseabed.\tThe\tdiver\tobserved\ta\tbody\tin\tthe\twheelhouse,\tbut\tthe\tfloating\tlines\tand\t\ndebris in the vicinity of",
+            "page": 18,
+            "organization": "MAIB"
+          },
+          {
+            "source": "2024-17-Biter-HebrideanPrincess.pdf",
+            "snippet": "47\nSECTION 3  – CONCLUSIONS\n3.1 SAFETY ISSUES DIRECTLY CONTRIBUTING TO THE \nACCIDENT THAT HAVE BEEN ADDRESSED OR RESULTED IN \nRECOMMENDATIONS\n1. Biter girted and capsized because it was unable to reve",
+            "page": 55,
+            "organization": "MAIB"
+          },
+          {
+            "source": "2024-17-Biter-HebrideanPrincess.pdf",
+            "snippet": "images showed, the tug’s turn stalled, the bridle came under tension and its gob \nrope did not prevent it being towed sideways.\nOnce Biter was being towed sideways it took about 10 seconds for the tug",
+            "page": 45,
+            "organization": "MAIB"
+          }
+        ],
+        "metrics": {
+          "key_fact_coverage": 0.75,
+          "citation_accuracy": 1.0,
+          "source_grounding": 0.4166666666666667,
+          "faithfulness_score": 1.0,
+          "hallucination_score": 0.0,
+          "relevance_score": 1.0,
+          "reasoning": "The answer accurately summarizes the incident described in the context, without introducing any new or unsupported information."
+        },
+        "response_time": 11.31
+      },
+      "plain_llm": {
+        "answer": "The tugboat Biter was involved in a tragic incident on January 15, 1979, off the coast of Louisiana. According to the United States Coast Guard (USCG) investigation report, the Biter, a 75-foot tugboat, collided with an oil tanker, the SS Marine Sulphur Queen, resulting in one of the deadliest maritime disasters in U.S. history.\n\nThe incident occurred approximately 10 miles off the coast of Port Fourchon, Louisiana, while the Biter was towing a barge carrying sulfur. The USCG investigation found that the Biter's crew had been warned about poor visibility due to fog and heavy rain, but they continued to operate in the area without proper navigation aids or communication with nearby vessels.\n\nAt around 2:30 am, the Biter collided with the Marine Sulphur Queen, which was carrying a cargo of molten sulfur. The impact caused a massive explosion and fire that engulfed both vessels. Of the 34 people on board the Biter, only one survivor, the captain, was rescued. All 26 crew members on the Marine Sulphur Queen were killed in the disaster.\n\nThe USCG investigation attributed the incident to a combination of factors, including poor visibility, inadequate navigation and communication, and human error. The incident led to significant changes in maritime safety regulations, including the implementation of improved navigation aids, enhanced communication protocols, and increased emphasis on crew training and safety procedures.\n\nSources:\n\n* United States Coast Guard (USCG) Investigation Report: Marine Casualty Report No. 15-79 (1979)\n* National Transportation Safety Board (NTSB) Accident Report: Marine Accident Report No. MAR-80/01 (1980)\n* International Maritime Organization (IMO) Report: Lessons Learned from the Biter-Marine Sulphur Queen Collision (1981)\n\nRegulations:\n\n* The USCG implemented new regulations for navigation and communication in foggy conditions, including the use of radar and electronic aids.\n* The IMO developed guidelines for improving maritime safety, including enhanced training and crew resource management practices.\n\nReports:\n\n* The USCG's Marine Casualty Report No. 15-79 (1979) provides a detailed account of the incident and its causes.\n* The NTSB's Accident Report No. MAR-80/01 (1980) offers an in-depth analysis of the factors contributing to the disaster.\n* The IMO's report on the Biter-Marine Sulphur Queen collision (1981) highlights the lessons learned from the tragedy and provides recommendations for improving maritime safety.",
+        "sources": [],
+        "metrics": {
+          "key_fact_coverage": 0.25,
+          "citation_accuracy": 0.0,
+          "source_grounding": 0.0,
+          "faithfulness_score": 0.0,
+          "hallucination_score": 1.0,
+          "relevance_score": 0.0,
+          "reasoning": "The answer describes a completely different incident and vessels, with no connection to the original question about the tug Biter."
+        },
+        "response_time": 4.78
+      }
+    },
+    {
+      "id": "incident_02",
+      "question": "What caused the loss of propulsion on Spirit of Discovery?",
+      "category": "specific_incident",
+      "ground_truth": "The passenger vessel Spirit of Discovery experienced loss of propulsion in heavy weather, leading to over 100 injuries and one fatality.",
+      "rag": {
+        "answer": "According to the report, the loss of propulsion on Spirit of Discovery was caused by the vessel's violent motion in heavy weather, which led to its propellers over-speeding and the propulsion pods automatically shutting down. This is stated on Page 8 of the report (Source: 2026-6-SpiritOfDiscovery-Report.pdf).",
+        "sources": [
+          {
+            "source": "2026-6-SpiritOfDiscovery-Report.pdf",
+            "snippet": "1\nSYNOPSIS\nShortly after 1230 on 4 November 2023, the passenger vessel Spirit of Discovery lost \npropulsion in heavy weather while crossing the Bay of Biscay. This led to the vessel \nmoving violently ",
+            "page": 8,
+            "organization": "MAIB"
+          },
+          {
+            "source": "2026-6-SpiritOfDiscovery-Report.pdf",
+            "snippet": "36\nwhich caused the vessel’s motion to become even more violent. This reduction \nin speed to below 5kts and the use of the bow thrusters meant that the vessel’s \nstabilisers\tbecame\tineffective\tand\twer",
+            "page": 43,
+            "organization": "MAIB"
+          },
+          {
+            "source": "2026-6-SpiritOfDiscovery-Report.pdf",
+            "snippet": "38\n2.3.5 Mode of operation\nAfter Spirit of Discovery’s initial loss of propulsion, the vessel’s pods intermittently \noversped and shut down a further eight times. It is almost certain that these event",
+            "page": 45,
+            "organization": "MAIB"
+          },
+          {
+            "source": "2026-6-SpiritOfDiscovery-Report.pdf",
+            "snippet": "44\nSECTION 3  – CONCLUSIONS\n3.1 SAFETY ISSUES DIRECTLY CONTRIBUTING TO THE \nACCIDENT THAT HAVE BEEN ADDRESSED OR RESULTED IN \nRECOMMENDATIONS\n1. Spirit of Discovery’s violent motion when it lost propu",
+            "page": 51,
+            "organization": "MAIB"
+          },
+          {
+            "source": "2026-6-SpiritOfDiscovery-Report.pdf",
+            "snippet": "35\nSECTION 2  – ANALYSIS\n2.1 AIM\nThe purpose of the analysis is to determine the contributory causes and \ncircumstances of the accident as a basis for making recommendations to prevent \nsimilar accide",
+            "page": 42,
+            "organization": "MAIB"
+          }
+        ],
+        "metrics": {
+          "key_fact_coverage": 0.6666666666666666,
+          "citation_accuracy": 1.0,
+          "source_grounding": 0.5,
+          "faithfulness_score": 0.9,
+          "hallucination_score": 1.0,
+          "relevance_score": 0.8,
+          "reasoning": "The answer accurately summarizes the report's findings, but could be more specific about the exact sequence of events leading to the loss of propulsion."
+        },
+        "response_time": 5.28
+      },
+      "plain_llm": {
+        "answer": "The Spirit of Discovery is a cruise ship operated by Saga Cruises, and it experienced a loss of propulsion while en route from Norway to the UK in August 2021.\n\nAccording to an investigation report by the Maritime and Coastguard Agency (MCA) and the Norwegian Maritime Authority (NMA), the probable cause of the loss of propulsion was a combination of human error and inadequate maintenance procedures. The report found that:\n\n* The ship's main engine had been operated for extended periods without proper maintenance, which led to wear and tear on critical components.\n* A faulty valve in the fuel system caused a blockage, restricting fuel flow to one of the ship's two main engines.\n* The crew did not follow proper procedures for monitoring and responding to alarms related to the engine's performance, allowing the problem to go undetected until it was too late.\n\nThe report also highlighted several contributing factors, including:\n\n* Inadequate training and experience among the bridge team in dealing with propulsion system failures.\n* Lack of clear procedures for handling such emergencies.\n* Insufficient communication between the bridge and engineering teams.\n\nThe incident resulted in a loss of propulsion, which led to a delay in reaching port and potential safety risks. The investigation recommended improvements to maintenance procedures, training, and communication to prevent similar incidents in the future.\n\nSource:\n\n* Maritime and Coastguard Agency (MCA) and Norwegian Maritime Authority (NMA). (2022). Investigation Report: Spirit of Discovery. Retrieved from <https://www.gov.uk/government/publications/investigation-report-spirit-of-discovery>\n\nNote: The exact details of the incident may have been redacted or anonymized in the report to protect sensitive information, but the overall findings and recommendations provide valuable insights into the causes and contributing factors.",
+        "sources": [],
+        "metrics": {
+          "key_fact_coverage": 0.3333333333333333,
+          "citation_accuracy": 0.0,
+          "source_grounding": 0.0,
+          "faithfulness_score": 0.0,
+          "hallucination_score": 1.0,
+          "relevance_score": 0.0,
+          "reasoning": "The answer does not provide any information about the Spirit of Discovery's loss of propulsion, and instead describes a different incident that occurred in August 2021."
+        },
+        "response_time": 3.45
+      }
+    },
+    {
+      "id": "incident_03",
+      "question": "What happened in the collision between Polesie and Verity?",
+      "category": "specific_incident",
+      "ground_truth": "The bulk carrier Polesie collided with the general cargo ship Verity, resulting in the sinking of Verity and the loss of lives.",
+      "rag": {
+        "answer": "According to the MAIB report (2026-5-Polesie-Verity-ReportAndAnnexes.pdf, Page 9), on 24 October 2023, the Isle of Man registered general cargo ship Verity and the Bahamas registered bulk carrier Polesie collided in the German Bight traffic separation scheme. Verity sank quickly, and five of the seven crew lost their lives.",
+        "sources": [
+          {
+            "source": "2026-5-Polesie-Verity-ReportAndAnnexes.pdf",
+            "snippet": "vessels\tin\tthe\tport\tarea,\twere\tineffective\ton\tthis\toccasion.\n1.20.2 Paula C and Darya Gayatri – collision\nOn 11 December 2013, the general cargo vessel Paula C and the bulk carrier \nDarya Gayatri\tcoll",
+            "page": 52,
+            "organization": "MAIB"
+          },
+          {
+            "source": "2026-5-Polesie-Verity-ReportAndAnnexes.pdf",
+            "snippet": "ACCIDENT REPORT\nACCIDENT REPORT\nReport on the investigation of \nthe collision between the bulk carrier\nPolesie\nand the general cargo ship\nVerity\nresulting in the sinking of Verity with five fatalities",
+            "page": 1,
+            "organization": "MAIB"
+          },
+          {
+            "source": "M23C0143.pdf",
+            "snippet": "MARINE TRANSPORTATION SAFETY INVESTIGATION REPORT M23C0143 ■ 29 \n \n1.14 Previous occurrences \nIn addition to this occurrence, there have been 235 occurrences47 that were reported to the \nTSB between 2",
+            "page": 29,
+            "organization": "TSB"
+          },
+          {
+            "source": "2026-5-Polesie-Verity-ReportAndAnnexes.pdf",
+            "snippet": "1\nSYNOPSIS\nAt 0455 on 24 October 2023, the Isle of Man registered general cargo ship Verity and the \nBahamas registered bulk carrier Polesie\tcollided\tin\tthe\tGerman\tBight\ttraffic\tseparation\t\nscheme. Ve",
+            "page": 9,
+            "organization": "MAIB"
+          },
+          {
+            "source": "2026-5-Polesie-Verity-ReportAndAnnexes.pdf",
+            "snippet": "disembarked its pilot. The tanker was inbound and was moving very slowly ahead \nwhile\twaiting\tfor\tthe\tpilot\tfrom\tthe\tcontainer\tship\tto\tboard.\tBoth\tvessels\tsuffered\t\nmajor structural damage to their bo",
+            "page": 52,
+            "organization": "MAIB"
+          },
+          {
+            "source": "2026-4-Apache-Serinah-ReportAndAnnex.pdf",
+            "snippet": "The\tMAIB\treceived\treports\tof\t283\tcollisions\tinvolving\tfishing\tvessels\tfrom\t2014\tto\t\n2023,\tof\twhich\t154\t(54.4%)\tinvolved\tunder\t15m\tfishing\tvessels.\tThese\treported\t\nincidents included:\n ● On\t24\tOctober\t",
+            "page": 24,
+            "organization": "MAIB"
+          },
+          {
+            "source": "2026-5-Polesie-Verity-ReportAndAnnexes.pdf",
+            "snippet": "The structure of the Collision Regulations is designed to ensure that, wherever \npossible, ships will not reach a close-quarters situation in which there is risk of \ncollision and in which decisions h",
+            "page": 38,
+            "organization": "MAIB"
+          },
+          {
+            "source": "2026-4-Apache-Serinah-ReportAndAnnex.pdf",
+            "snippet": "an expectation that action, or a lack of action, contrary to the established rules was \nan acceptable and safe course of action. \nThe 2/O was in charge of the watch. As the distance between Apache and",
+            "page": 26,
+            "organization": "MAIB"
+          },
+          {
+            "source": "2026-5-Polesie-Verity-ReportAndAnnexes.pdf",
+            "snippet": "33\n ● Rule 8 – Action to Avoid Collision. In commenting that the decision to take action \nshould not be based on scant information, the guide provided examples for \nhead-on encounters. It proposed tha",
+            "page": 41,
+            "organization": "MAIB"
+          },
+          {
+            "source": "2026-4-Apache-Serinah-ReportAndAnnex.pdf",
+            "snippet": "vessels saw each other at a distance of at least 3nm but neither vessel took \nsufficient\taction\tin\ttime\tto\tavoid\tthe\tcollision.\n ● On 17 October 2024, a near miss occurred between the 134m chemical \nt",
+            "page": 24,
+            "organization": "MAIB"
+          }
+        ],
+        "metrics": {
+          "key_fact_coverage": 0.5,
+          "citation_accuracy": 1.0,
+          "source_grounding": 0.7647058823529411,
+          "faithfulness_score": 0.9,
+          "hallucination_score": 1.0,
+          "relevance_score": 0.8,
+          "reasoning": "The answer accurately reports the collision between Polesie and Verity, but does not provide additional information that is not present in the context."
+        },
+        "response_time": 13.44
+      },
+      "plain_llm": {
+        "answer": "The collision between the Polesie and the Verity occurred on January 18, 2019, off the coast of Norway. According to the Norwegian Maritime Authority (NMA), the incident involved a bulk carrier, the Polesie, which was traveling from Ukraine to Sweden, and a fishing vessel, the Verity, which was operating in the area.\n\nThe investigation into the collision found that the Polesie was navigating through a busy shipping lane without using its Automatic Identification System (AIS) or radar, despite being required to do so by international regulations. The Verity, on the other hand, was not equipped with AIS and was relying solely on visual observations to navigate.\n\nThe NMA investigation report states that the Polesie's master failed to keep a proper lookout and did not take adequate action to avoid the collision. The report also notes that the Verity's crew did not have adequate training or equipment to respond effectively in emergency situations.\n\nThe collision resulted in significant damage to both vessels, but fortunately, there were no reported injuries or fatalities.\n\nSources:\n\n* Norwegian Maritime Authority (NMA) Investigation Report: \"Collision between Polesie and Verity\" (2019)\n* International Maritime Organization (IMO) News: \"Polesie-Verity Collision Highlights Importance of AIS Use\" (February 2019)\n\nRegulations:\n\n* The International Convention for the Safety of Life at Sea (SOLAS) requires vessels to use AIS when operating in certain areas, including busy shipping lanes.\n* The International Regulations for Preventing Collisions at Sea (COLREGS) require vessels to keep a proper lookout and take adequate action to avoid collisions.\n\nReports:\n\n* The NMA investigation report provides detailed information on the incident, including the findings of the investigation and recommendations for preventing similar incidents in the future.",
+        "sources": [],
+        "metrics": {
+          "key_fact_coverage": 0.75,
+          "citation_accuracy": 0.0,
+          "source_grounding": 0.0,
+          "faithfulness_score": 0.0,
+          "hallucination_score": 1.0,
+          "relevance_score": 0.0,
+          "reasoning": "The answer claims a collision occurred on January 18, 2019, off the coast of Norway, which is not supported by any context provided."
+        },
+        "response_time": 3.53
+      }
+    },
+    {
+      "id": "incident_04",
+      "question": "Describe the Honeybourne III incident.",
+      "category": "specific_incident",
+      "ground_truth": "A deckhand suffered a fatal injury following a chain failure on the scallop dredger Honeybourne III.",
+      "rag": {
+        "answer": "According to the provided context from official maritime safety documents and accident investigation reports, the Honeybourne III incident occurred on 6 October 2023 when a deckhand was fatally injured while working beneath the port derrick of the scallop dredger Honeybourne III (PD905). A section of chain supporting the fishing gear failed, releasing the suspended gear that fell to the deck below and struck the deckhand, causing fatal head injuries. The incident occurred about 16 nautical miles south of Newhaven, England, while the crew was recovering their gear.\n\nReferences:\n\n* [Source: 2026-1-HoneybourneIII-ReportAndAnnexes.pdf, Page 9, Org: MAIB]\n* [Source: 2026-1-HoneybourneIII-ReportAndAnnaxes.pdf, Page 183, Org: MAIB]\n* [Source: 2026-1-HoneybourneIII-ReportAndAnnexes.pdf, Page 178, Org: MAIB]",
+        "sources": [
+          {
+            "source": "2026-1-HoneybourneIII-ReportAndAnnexes.pdf",
+            "snippet": "1\nSYNOPSIS\nAt 2345 on 6 October 2023 Denver Teleron, a deckhand on the scallop dredger \nHoneybourne III\t(PD905)\twas\tfatally\tinjured\twhen\the\twas\tstruck\tby\ta\ttowing\tblock\tthat\thad\t\nfallen from the head ",
+            "page": 9,
+            "organization": "MAIB"
+          },
+          {
+            "source": "2026-1-HoneybourneIII-ReportAndAnnexes.pdf",
+            "snippet": "SAFETY FLYER TO THE FISHING INDUSTRY\nFatal accident to a deckhand on board the scallop dredger Honeybourne III \n(PD905) 16 nautical miles south of Newhaven, England on 6 October 2023\nNarrative\nAt 2345",
+            "page": 183,
+            "organization": "MAIB"
+          },
+          {
+            "source": "2026-1-HoneybourneIII-ReportAndAnnexes.pdf",
+            "snippet": "1\nBACKGROUND\nAt about 2345 on 6 October 2023, the lifting arrangement for the dredging gear that was \nsuspended from the raised port derrick on the UK registered scallop dredger Honeybourne III \n(PD90",
+            "page": 178,
+            "organization": "MAIB"
+          },
+          {
+            "source": "2026-1-HoneybourneIII-ReportAndAnnexes.pdf",
+            "snippet": "In June 2025, the MAIB published a report into the fatal accident on board the beam \ntrawler Cornishman that had similar circumstances to the accident on Honeybourne III. \nThat\treport\tmade\trecommendat",
+            "page": 9,
+            "organization": "MAIB"
+          },
+          {
+            "source": "2026-1-HoneybourneIII-ReportAndAnnexes.pdf",
+            "snippet": "3\n1.2 NARRATIVE\nOn 1 October 2023, the scallop dredger Honeybourne III\tdeparted\tfrom\tShoreham,\t\nEngland to dredge for scallops in the English Channel. On 4 October, following a \nperiod\toperating\tin\tth",
+            "page": 11,
+            "organization": "MAIB"
+          }
+        ],
+        "metrics": {
+          "key_fact_coverage": 0.75,
+          "citation_accuracy": 1.0,
+          "source_grounding": 0.4482758620689655,
+          "faithfulness_score": 1.0,
+          "hallucination_score": 1.0,
+          "relevance_score": 1.0,
+          "reasoning": "The answer accurately summarizes the incident described in the provided context, without introducing any new or fabricated information."
+        },
+        "response_time": 6.35
+      },
+      "plain_llm": {
+        "answer": "The Honeybourne III was a British-registered cargo ship that sank on January 12, 1974, resulting in one of the worst maritime disasters in UK history.\n\nAccording to the Marine Accident Investigation Branch (MAIB) report, the Honeybourne III was carrying a cargo of coal from the Netherlands to the UK when it suffered a catastrophic failure of its main engine. The ship lost power and began taking on water at an alarming rate due to a combination of factors, including a faulty bilge pump and inadequate watertight subdivision.\n\nDespite efforts by the crew to save the vessel, the Honeybourne III eventually foundered and sank in the North Sea approximately 100 miles off the coast of Yorkshire. Of the 26 people on board, only one survivor was rescued from the water.\n\nThe MAIB investigation identified several contributing factors to the incident, including:\n\n1. Poor maintenance and inspection practices by the ship's operators.\n2. Inadequate training for the crew in emergency procedures.\n3. Lack of effective communication between the bridge and engine room crews.\n4. Insufficient watertight subdivision to contain flooding.\n\nThe Honeybourne III disaster led to significant changes in maritime safety regulations, including:\n\n1. The introduction of more stringent maintenance and inspection requirements for cargo ships.\n2. Improved training programs for crew members on emergency procedures.\n3. Enhanced communication protocols between bridge and engine room crews.\n4. Increased emphasis on watertight subdivision and flooding control measures.\n\nThe incident is also cited in various maritime safety reports, including the International Maritime Organization's (IMO) \"Safety of Life at Sea\" (SOLAS) convention, which emphasizes the importance of regular maintenance, proper training, and effective communication to prevent similar tragedies.\n\nSources:\n\n* Marine Accident Investigation Branch (MAIB). (1974). Report on the sinking of the Honeybourne III.\n* International Maritime Organization (IMO). (1980). Safety of Life at Sea (SOLAS) Convention.\n* UK Government. (2019). Maritime and Coastguard Agency: Guidance on Watertight Subdivision.\n\nNote: The MAIB report is a publicly available document, but it may require registration or subscription to access the full text.",
+        "sources": [],
+        "metrics": {
+          "key_fact_coverage": 0.0,
+          "citation_accuracy": 0.0,
+          "source_grounding": 0.0,
+          "faithfulness_score": 0.0,
+          "hallucination_score": 1.0,
+          "relevance_score": 0.0,
+          "reasoning": "The answer describes a completely different incident (the sinking of the Honeybourne III in 1974) and does not address the question about the fatal injury to a deckhand on board the scallop dredger Honeybourne III in 2023."
+        },
+        "response_time": 4.17
+      }
+    },
+    {
+      "id": "incident_05",
+      "question": "What happened to the fishing vessel Opportune?",
+      "category": "specific_incident",
+      "ground_truth": "The stern trawler Opportune (LK 209) experienced flooding and foundered.",
+      "rag": {
+        "answer": "According to the MAIB report, the fishing vessel Opportune sank approximately 36 nautical miles east of Lerwick, Shetland Islands, Scotland on 24 March 2024. The loss resulted from a flood in the engine room that could not be brought under control. Once the situation became untenable, the eight crew abandoned the vessel, and it foundered shortly afterwards.",
+        "sources": [
+          {
+            "source": "2026-3-Opportune-ReportAndAnnex.pdf",
+            "snippet": "SAFETY FLYER TO THE FISHING INDUSTRY\nFlooding and foundering of the stern trawler Opportune (LK 209)\napproximately 36 nautical miles east of Lerwick, Shetland Islands, Scotland on \n24 March 2024\nNarra",
+            "page": 30,
+            "organization": "MAIB"
+          },
+          {
+            "source": "2026-3-Opportune-ReportAndAnnex.pdf",
+            "snippet": "room\tflood.\tThe\tsource\tof\tthe\tflood\tcould\tnot\tbe\tdefinitively\testablished\tbut\tthe\tmost\tlikely\t\ncause was failure of the vessel’s seawater pipework, some of which could have been in \nplace since the 26",
+            "page": 6,
+            "organization": "MAIB"
+          },
+          {
+            "source": "2026-3-Opportune-ReportAndAnnex.pdf",
+            "snippet": "very high frequency radio (VHF) and informed all ships that Opportune was taking \non water. The vessel lost propulsion and electrical power shortly afterwards.\nBy approximately 0510, Opportune’s eight",
+            "page": 9,
+            "organization": "MAIB"
+          },
+          {
+            "source": "2026-3-Opportune-ReportAndAnnex.pdf",
+            "snippet": "1\nSYNOPSIS\nAt about 0530 on 24 March 2024, the 23.95m UK registered stern trawler Opportune \nfoundered 36 miles east of Lerwick, Scotland. Opportune’s eight crew were later rescued \nuninjured from the",
+            "page": 6,
+            "organization": "MAIB"
+          },
+          {
+            "source": "2026-3-Opportune-ReportAndAnnex.pdf",
+            "snippet": "the vessel was built in 1998. The flood could not be contained because the crew were unable to \nenter the engine room and start its bilge pumps, nor were they able to close the sea inlet valves. \nFace",
+            "page": 30,
+            "organization": "MAIB"
+          }
+        ],
+        "metrics": {
+          "key_fact_coverage": 0.0,
+          "citation_accuracy": 1.0,
+          "source_grounding": 0.8181818181818182,
+          "faithfulness_score": 1.0,
+          "hallucination_score": 0.0,
+          "relevance_score": 1.0,
+          "reasoning": "The answer accurately summarizes the MAIB report, without introducing any new or unsupported claims."
+        },
+        "response_time": 5.2
+      },
+      "plain_llm": {
+        "answer": "The fishing vessel Opportune was involved in a tragic incident on January 9, 2013, off the coast of Alaska. According to the National Transportation Safety Board (NTSB) investigation report (NTSB/MAR-14/01), the Opportune, a 125-foot commercial fishing vessel, sank while operating in the Bering Sea about 120 miles west of Dutch Harbor.\n\nThe NTSB report states that the vessel was fishing for cod and pollock when it experienced a sudden loss of buoyancy. The crew attempted to save the vessel by pumping water out of the compartments, but it eventually sank at around 10:30 pm local time. All six crew members on board were rescued by the nearby fishing vessel, F/V Sea Star.\n\nThe NTSB investigation found that the probable cause of the sinking was a combination of factors, including:\n\n1. Inadequate maintenance and inspection of the vessel's hull and compartments.\n2. Insufficient watertight integrity of the vessel's hull.\n3. Failure to properly maintain and operate the vessel's pumps and piping systems.\n\nThe report also noted that the Opportune did not have a functioning emergency position-indicating radio beacon (EPIRB) on board, which would have allowed for more timely notification of the distress situation.\n\nThe incident highlights the importance of regular maintenance, inspections, and safety equipment on commercial fishing vessels to prevent such tragedies. The NTSB report made several recommendations to the Coast Guard and the fishing industry to improve vessel safety and emergency response procedures.\n\nSource:\n\n* National Transportation Safety Board (NTSB). (2014). Marine Accident Report: Opportune, Fishing Vessel, January 9, 2013. NTSB/MAR-14/01.\n* United States Coast Guard (USCG). (2013). Incident Report: F/V Opportune Sinking, January 9, 2013.",
+        "sources": [],
+        "metrics": {
+          "key_fact_coverage": 0.0,
+          "citation_accuracy": 0.0,
+          "source_grounding": 0.0,
+          "faithfulness_score": 0.0,
+          "hallucination_score": 1.0,
+          "relevance_score": 0.0,
+          "reasoning": "The answer describes a different incident and vessel, unrelated to the Opportune's sinking in the Shetland Islands."
+        },
+        "response_time": 3.75
+      }
+    }
+  ]
+}

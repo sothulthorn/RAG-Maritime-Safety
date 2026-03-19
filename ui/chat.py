@@ -18,10 +18,8 @@ def render_chat():
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
-            if msg.get("sources"):
-                with st.expander("Sources"):
-                    for src in msg["sources"]:
-                        _render_source(src)
+            if msg["role"] == "assistant":
+                _render_metadata(msg)
 
     # Chat input
     if prompt := st.chat_input("Ask a maritime safety question..."):
@@ -36,21 +34,57 @@ def render_chat():
                     result = answer_question(prompt, source_filter=source_filter)
                     answer = result["answer"]
                     sources = result["sources"]
+                    confidence = result.get("confidence", "")
+                    verified = result.get("verified", False)
+                    verification_details = result.get("verification_details", "")
                 except Exception as e:
                     answer = f"Error generating answer: {e}\n\nMake sure Ollama is running with the llama3 model (`ollama serve` and `ollama pull llama3`)."
                     sources = []
+                    confidence = ""
+                    verified = False
+                    verification_details = ""
 
             st.markdown(answer)
-            if sources:
-                with st.expander("Sources"):
-                    for src in sources:
-                        _render_source(src)
 
-        st.session_state.messages.append({
-            "role": "assistant",
-            "content": answer,
-            "sources": sources,
-        })
+            msg_data = {
+                "role": "assistant",
+                "content": answer,
+                "sources": sources,
+                "confidence": confidence,
+                "verified": verified,
+                "verification_details": verification_details,
+            }
+            _render_metadata(msg_data)
+
+        st.session_state.messages.append(msg_data)
+
+
+def _render_metadata(msg: dict):
+    """Render confidence badge, sources, and verification details."""
+    confidence = msg.get("confidence", "")
+    verified = msg.get("verified", False)
+    sources = msg.get("sources", [])
+    verification_details = msg.get("verification_details", "")
+
+    # Confidence badge
+    if confidence:
+        color_map = {"HIGH": "green", "MEDIUM": "orange", "LOW": "red", "UNVERIFIED": "gray"}
+        color = color_map.get(confidence, "gray")
+        badge = f":{color}[Confidence: {confidence}]"
+        if verified:
+            badge += " | :blue[Verified]"
+        st.caption(badge)
+
+    # Sources
+    if sources:
+        with st.expander("Sources"):
+            for src in sources:
+                _render_source(src)
+
+    # Verification details
+    if verification_details and verified:
+        with st.expander("Verification Details"):
+            st.text(verification_details)
 
 
 def _render_source(src: dict):
