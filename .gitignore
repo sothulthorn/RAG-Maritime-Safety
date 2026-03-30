@@ -2,6 +2,7 @@ data/
 chroma_db/
 __pycache__/
 .venv/
+venv/
 *.pyc
 *.pyo
 *.egg-info/

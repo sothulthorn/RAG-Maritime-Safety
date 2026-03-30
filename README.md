@@ -82,7 +82,7 @@ RAG-Maritime-Safety/
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/RAG-Maritime-Safety.git
+git clone https://github.com/sothulthorn/RAG-Maritime-Safety.git
 cd RAG-Maritime-Safety
 
 # Create and activate a virtual environment

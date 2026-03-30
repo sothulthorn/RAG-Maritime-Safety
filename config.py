@@ -50,5 +50,15 @@ SOURCE_ORGS = {
     "maib": "MAIB (UK)",
     "ntsb": "NTSB (US)",
     "tsb": "TSB (Canada)",
+    "uscg": "USCG (US)",
+    "atsb": "ATSB (Australia)",
+    "dmaib": "DMAIB (Denmark)",
+    "bsu": "BSU (Germany)",
+    "maib_digests": "MAIB Safety Digests (UK)",
+    "jtsb": "JTSB (Japan)",
+    "shk": "SHK (Sweden)",
+    # Knowledge sources (regulations, guidelines, reference)
+    "regulations": "Regulations & Codes",
+    "knowledge": "Knowledge & Reference",
     "sample": "Sample Documents",
 }

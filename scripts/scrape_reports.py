@@ -1,16 +1,23 @@
 """
 Maritime Safety Report Scraper
 Downloads accident investigation reports from:
-  - MAIB (UK Marine Accident Investigation Branch)
-  - NTSB (US National Transportation Safety Board)
-  - TSB  (Transportation Safety Board of Canada)
+  - MAIB          (UK Marine Accident Investigation Branch)
+  - NTSB          (US National Transportation Safety Board)
+  - TSB           (Transportation Safety Board of Canada)
+  - USCG          (US Coast Guard — Marine Safety Alerts)
+  - ATSB          (Australian Transport Safety Bureau)
+  - DMAIB         (Danish Maritime Accident Investigation Board)
+  - BSU           (German Federal Bureau of Maritime Casualty Investigation)
+  - MAIB Digests  (UK — annual lessons-learned compilations)
+  - JTSB          (Japan Transport Safety Board)
+  - SHK           (Swedish Accident Investigation Authority)
 
 Usage:
-    python scripts/scrape_reports.py              # Download from all sources
-    python scripts/scrape_reports.py --source maib # Download MAIB only
-    python scripts/scrape_reports.py --source ntsb # Download NTSB only
-    python scripts/scrape_reports.py --source tsb  # Download TSB only
-    python scripts/scrape_reports.py --max 10      # Limit downloads per source
+    python scripts/scrape_reports.py                    # Download from all sources
+    python scripts/scrape_reports.py --source maib      # Download MAIB only
+    python scripts/scrape_reports.py --source uscg      # Download USCG only
+    python scripts/scrape_reports.py --max 10           # Limit downloads per source
+    python scripts/scrape_reports.py --list             # Show available sources
 """
 
 import argparse
@@ -327,13 +334,582 @@ def scrape_tsb(max_reports: int = 0):
 
 
 # ---------------------------------------------------------------------------
+# Shared helpers for new scrapers
+# ---------------------------------------------------------------------------
+def _fetch_page(url: str) -> BeautifulSoup | None:
+    """Fetch a URL and return parsed BeautifulSoup, or None on failure."""
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+        if resp.status_code != 200:
+            print(f"  [FAIL] HTTP {resp.status_code}: {url}")
+            return None
+        return BeautifulSoup(resp.text, "html.parser")
+    except requests.RequestException as e:
+        print(f"  [ERR] {e}")
+        return None
+
+
+def _save_html_text(url: str, dest: Path, soup: BeautifulSoup) -> bool:
+    """Save HTML page text as .txt fallback. Returns True if meaningful content saved."""
+    if dest.exists():
+        print(f"  [SKIP] Already exists: {dest.name}")
+        return True
+    text = soup.get_text(separator="\n", strip=True)
+    if len(text) < 500:
+        return False
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    with open(dest, "w", encoding="utf-8") as f:
+        f.write(text)
+    print(f"  [OK] {dest.name} (HTML text)")
+    return True
+
+
+def _sanitize_filename(name: str) -> str:
+    """Sanitize a filename by replacing non-alphanumeric characters."""
+    return re.sub(r'[^\w\-.]', '_', name)
+
+
+# ---------------------------------------------------------------------------
+# USCG — US Coast Guard Marine Safety Alerts
+# ---------------------------------------------------------------------------
+def scrape_uscg(max_reports: int = 0):
+    """
+    Scrape USCG Marine Safety Alerts from the DCO website.
+    Each alert is a one-page PDF linked from the listing page.
+    """
+    out_dir = BASE_DIR / "uscg"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    list_url = "https://www.dco.uscg.mil/Featured-Content/Alerts/Marine-Safety-Alert/"
+
+    print(f"\n{'='*60}")
+    print("USCG — US Coast Guard Marine Safety Alerts")
+    print(f"{'='*60}")
+
+    print("\nFetching alert listing...")
+    soup = _fetch_page(list_url)
+    if not soup:
+        return 0
+
+    pdf_links = []
+    for a_tag in soup.find_all("a", href=True):
+        href = a_tag["href"]
+        if href.lower().endswith(".pdf"):
+            full_url = urljoin(list_url, href)
+            if full_url not in pdf_links:
+                pdf_links.append(full_url)
+
+    print(f"  Found {len(pdf_links)} PDF links")
+
+    downloaded = 0
+    for pdf_url in pdf_links:
+        if 0 < max_reports <= downloaded:
+            break
+        filename = _sanitize_filename(pdf_url.split("/")[-1])
+        if not filename.endswith(".pdf"):
+            filename += ".pdf"
+        if _download_pdf(pdf_url, out_dir / filename):
+            downloaded += 1
+        time.sleep(DELAY_BETWEEN_REQUESTS)
+
+    print(f"\nUSCG: Downloaded {downloaded} alerts to {out_dir}")
+    return downloaded
+
+
+# ---------------------------------------------------------------------------
+# ATSB — Australian Transport Safety Bureau
+# ---------------------------------------------------------------------------
+def scrape_atsb(max_reports: int = 0):
+    """
+    Scrape ATSB marine investigation reports.
+    Strategy: paginate the marine investigations listing, find PDF links.
+    """
+    out_dir = BASE_DIR / "atsb"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    base_url = "https://www.atsb.gov.au"
+    list_url = f"{base_url}/marine/investigations"
+
+    print(f"\n{'='*60}")
+    print("ATSB — Australian Transport Safety Bureau")
+    print(f"{'='*60}")
+
+    downloaded = 0
+    page = 0
+
+    while True:
+        if 0 < max_reports <= downloaded:
+            break
+
+        url = f"{list_url}?page={page}" if page > 0 else list_url
+        print(f"\nFetching listing page {page + 1}...")
+
+        soup = _fetch_page(url)
+        if not soup:
+            break
+
+        report_links = []
+        for a_tag in soup.select("a[href*='/marine/investigations/']"):
+            href = a_tag.get("href", "")
+            if href and href != "/marine/investigations/" and "?" not in href:
+                full_url = urljoin(base_url, href)
+                if full_url not in report_links:
+                    report_links.append(full_url)
+
+        if not report_links:
+            print(f"  No more reports on page {page + 1}.")
+            break
+
+        print(f"  Found {len(report_links)} report links")
+
+        for report_url in report_links:
+            if 0 < max_reports <= downloaded:
+                break
+
+            time.sleep(DELAY_BETWEEN_REQUESTS)
+            report_soup = _fetch_page(report_url)
+            if not report_soup:
+                continue
+
+            pdf_found = False
+            for a_tag in report_soup.find_all("a", href=True):
+                href = a_tag["href"]
+                if href.lower().endswith(".pdf"):
+                    pdf_url = urljoin(report_url, href)
+                    filename = _sanitize_filename(pdf_url.split("/")[-1])
+                    if _download_pdf(pdf_url, out_dir / filename):
+                        downloaded += 1
+                        pdf_found = True
+                    time.sleep(DELAY_BETWEEN_REQUESTS)
+                    if 0 < max_reports <= downloaded:
+                        break
+
+            if not pdf_found:
+                slug = report_url.rstrip("/").split("/")[-1]
+                if _save_html_text(report_url, out_dir / f"{slug}.txt", report_soup):
+                    downloaded += 1
+
+        # Check for next page
+        next_link = soup.find("a", {"rel": "next"})
+        if not next_link:
+            next_link = soup.find("a", string=re.compile(r"Next|›|»", re.IGNORECASE))
+        if not next_link:
+            break
+
+        page += 1
+
+    print(f"\nATSB: Downloaded {downloaded} reports to {out_dir}")
+    return downloaded
+
+
+# ---------------------------------------------------------------------------
+# DMAIB — Danish Maritime Accident Investigation Board
+# ---------------------------------------------------------------------------
+def scrape_dmaib(max_reports: int = 0):
+    """
+    Scrape DMAIB reports from dmaib.dk.
+    Strategy: listing page with direct PDF links or report sub-pages.
+    """
+    out_dir = BASE_DIR / "dmaib"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    base_url = "https://dmaib.dk"
+    list_url = f"{base_url}/reports/"
+
+    print(f"\n{'='*60}")
+    print("DMAIB — Danish Maritime Accident Investigation Board")
+    print(f"{'='*60}")
+
+    downloaded = 0
+    page = 1
+
+    while True:
+        if 0 < max_reports <= downloaded:
+            break
+
+        url = f"{list_url}page/{page}/" if page > 1 else list_url
+        print(f"\nFetching listing page {page}...")
+
+        soup = _fetch_page(url)
+        if not soup:
+            break
+
+        pdf_links = []
+        report_links = []
+
+        for a_tag in soup.find_all("a", href=True):
+            href = a_tag["href"]
+            full_url = urljoin(base_url, href)
+            if href.lower().endswith(".pdf"):
+                if full_url not in pdf_links:
+                    pdf_links.append(full_url)
+            elif "/reports/" in href and href != "/reports/" and "page/" not in href:
+                if full_url not in report_links and full_url != list_url:
+                    report_links.append(full_url)
+
+        if not pdf_links and not report_links:
+            print(f"  No more reports on page {page}.")
+            break
+
+        for pdf_url in pdf_links:
+            if 0 < max_reports <= downloaded:
+                break
+            filename = _sanitize_filename(pdf_url.split("/")[-1])
+            if _download_pdf(pdf_url, out_dir / filename):
+                downloaded += 1
+            time.sleep(DELAY_BETWEEN_REQUESTS)
+
+        for report_url in report_links:
+            if 0 < max_reports <= downloaded:
+                break
+            time.sleep(DELAY_BETWEEN_REQUESTS)
+            report_soup = _fetch_page(report_url)
+            if not report_soup:
+                continue
+            for a_tag in report_soup.find_all("a", href=True):
+                href = a_tag["href"]
+                if href.lower().endswith(".pdf"):
+                    pdf_url = urljoin(report_url, href)
+                    filename = _sanitize_filename(pdf_url.split("/")[-1])
+                    if _download_pdf(pdf_url, out_dir / filename):
+                        downloaded += 1
+                    time.sleep(DELAY_BETWEEN_REQUESTS)
+                    break
+
+        next_link = soup.find("a", string=re.compile(r"Next|Næste|›|»", re.IGNORECASE))
+        if not next_link:
+            next_link = soup.find("a", class_=re.compile(r"next", re.IGNORECASE))
+        if not next_link:
+            break
+
+        page += 1
+
+    print(f"\nDMAIB: Downloaded {downloaded} reports to {out_dir}")
+    return downloaded
+
+
+# ---------------------------------------------------------------------------
+# BSU — German Federal Bureau of Maritime Casualty Investigation
+# ---------------------------------------------------------------------------
+def scrape_bsu(max_reports: int = 0):
+    """
+    Scrape BSU investigation reports (English versions).
+    Strategy: paginate the listing, visit report pages, find PDF links.
+    """
+    out_dir = BASE_DIR / "bsu"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    base_url = "https://www.bsu-bund.de"
+    list_url = f"{base_url}/EN/Publications/Investigation_reports/investigation_reports_node.html"
+
+    print(f"\n{'='*60}")
+    print("BSU — German Federal Bureau of Maritime Casualty Investigation")
+    print(f"{'='*60}")
+
+    print("\nFetching report listing...")
+    soup = _fetch_page(list_url)
+    if not soup:
+        return 0
+
+    # Collect all pagination URLs
+    page_urls = [list_url]
+    for a_tag in soup.find_all("a", href=True):
+        href = a_tag["href"]
+        if "investigation_reports_node" in href:
+            full_url = urljoin(base_url, href)
+            if full_url not in page_urls:
+                page_urls.append(full_url)
+
+    print(f"  Found {len(page_urls)} listing pages")
+
+    downloaded = 0
+    for page_url in page_urls:
+        if 0 < max_reports <= downloaded:
+            break
+
+        if page_url != list_url:
+            time.sleep(DELAY_BETWEEN_REQUESTS)
+            soup = _fetch_page(page_url)
+            if not soup:
+                continue
+
+        for a_tag in soup.find_all("a", href=True):
+            if 0 < max_reports <= downloaded:
+                break
+            href = a_tag["href"]
+
+            if href.lower().endswith(".pdf"):
+                pdf_url = urljoin(base_url, href)
+                filename = _sanitize_filename(pdf_url.split("/")[-1].split("?")[0])
+                if not filename.endswith(".pdf"):
+                    filename += ".pdf"
+                if _download_pdf(pdf_url, out_dir / filename):
+                    downloaded += 1
+                time.sleep(DELAY_BETWEEN_REQUESTS)
+
+            elif "/Investigation_reports/" in href and "node" not in href:
+                report_url = urljoin(base_url, href)
+                time.sleep(DELAY_BETWEEN_REQUESTS)
+                report_soup = _fetch_page(report_url)
+                if not report_soup:
+                    continue
+                for inner_a in report_soup.find_all("a", href=True):
+                    inner_href = inner_a["href"]
+                    if inner_href.lower().endswith(".pdf"):
+                        pdf_url = urljoin(base_url, inner_href)
+                        filename = _sanitize_filename(pdf_url.split("/")[-1].split("?")[0])
+                        if _download_pdf(pdf_url, out_dir / filename):
+                            downloaded += 1
+                        time.sleep(DELAY_BETWEEN_REQUESTS)
+                        break
+
+    print(f"\nBSU: Downloaded {downloaded} reports to {out_dir}")
+    return downloaded
+
+
+# ---------------------------------------------------------------------------
+# MAIB Safety Digests — UK annual lessons-learned compilations
+# ---------------------------------------------------------------------------
+def scrape_maib_digests(max_reports: int = 0):
+    """
+    Scrape MAIB Safety Digest PDFs from gov.uk.
+    These are annual compilations of lessons learned from marine accidents.
+    """
+    out_dir = BASE_DIR / "maib_digests"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    base_url = "https://www.gov.uk"
+    list_url = f"{base_url}/government/collections/maib-safety-digests"
+
+    print(f"\n{'='*60}")
+    print("MAIB Safety Digests — UK Lessons Learned Compilations")
+    print(f"{'='*60}")
+
+    print("\nFetching digest collection page...")
+    soup = _fetch_page(list_url)
+    if not soup:
+        return 0
+
+    digest_links = []
+    for a_tag in soup.find_all("a", href=True):
+        href = a_tag["href"]
+        if "/government/publications/" in href and ("safety-digest" in href.lower() or "maib" in href.lower()):
+            full_url = urljoin(base_url, href)
+            if full_url not in digest_links:
+                digest_links.append(full_url)
+
+    print(f"  Found {len(digest_links)} digest publication links")
+
+    downloaded = 0
+    for digest_url in digest_links:
+        if 0 < max_reports <= downloaded:
+            break
+
+        time.sleep(DELAY_BETWEEN_REQUESTS)
+        digest_soup = _fetch_page(digest_url)
+        if not digest_soup:
+            continue
+
+        for a_tag in digest_soup.find_all("a", href=True):
+            if 0 < max_reports <= downloaded:
+                break
+            href = a_tag["href"]
+            if href.lower().endswith(".pdf"):
+                pdf_url = urljoin(base_url, href)
+                filename = _sanitize_filename(pdf_url.split("/")[-1])
+                if _download_pdf(pdf_url, out_dir / filename):
+                    downloaded += 1
+                time.sleep(DELAY_BETWEEN_REQUESTS)
+
+    print(f"\nMAIB Digests: Downloaded {downloaded} digests to {out_dir}")
+    return downloaded
+
+
+# ---------------------------------------------------------------------------
+# JTSB — Japan Transport Safety Board
+# ---------------------------------------------------------------------------
+def scrape_jtsb(max_reports: int = 0):
+    """
+    Scrape JTSB marine accident reports (English versions).
+    Strategy: parse the English report listing page, find PDF links.
+    """
+    out_dir = BASE_DIR / "jtsb"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    base_url = "https://www.mlit.go.jp"
+    list_url = f"{base_url}/jtsb/ship/rep-acci/ship-accident-list-e.html"
+
+    print(f"\n{'='*60}")
+    print("JTSB — Japan Transport Safety Board")
+    print(f"{'='*60}")
+
+    print("\nFetching English report listing...")
+    soup = _fetch_page(list_url)
+    if not soup:
+        return 0
+
+    pdf_links = []
+    report_links = []
+
+    for a_tag in soup.find_all("a", href=True):
+        href = a_tag["href"]
+        if href.lower().endswith(".pdf"):
+            full_url = urljoin(list_url, href)
+            if full_url not in pdf_links:
+                pdf_links.append(full_url)
+        elif "/jtsb/ship/" in href and href != list_url and not href.lower().endswith(".pdf"):
+            full_url = urljoin(base_url, href)
+            if full_url not in report_links:
+                report_links.append(full_url)
+
+    print(f"  Found {len(pdf_links)} direct PDFs and {len(report_links)} report pages")
+
+    downloaded = 0
+
+    for pdf_url in pdf_links:
+        if 0 < max_reports <= downloaded:
+            break
+        filename = _sanitize_filename(pdf_url.split("/")[-1])
+        if _download_pdf(pdf_url, out_dir / filename):
+            downloaded += 1
+        time.sleep(DELAY_BETWEEN_REQUESTS)
+
+    for report_url in report_links:
+        if 0 < max_reports <= downloaded:
+            break
+        time.sleep(DELAY_BETWEEN_REQUESTS)
+        report_soup = _fetch_page(report_url)
+        if not report_soup:
+            continue
+        for a_tag in report_soup.find_all("a", href=True):
+            href = a_tag["href"]
+            if href.lower().endswith(".pdf"):
+                pdf_url = urljoin(report_url, href)
+                filename = _sanitize_filename(pdf_url.split("/")[-1])
+                if _download_pdf(pdf_url, out_dir / filename):
+                    downloaded += 1
+                time.sleep(DELAY_BETWEEN_REQUESTS)
+                if 0 < max_reports <= downloaded:
+                    break
+
+    print(f"\nJTSB: Downloaded {downloaded} reports to {out_dir}")
+    return downloaded
+
+
+# ---------------------------------------------------------------------------
+# SHK — Swedish Accident Investigation Authority
+# ---------------------------------------------------------------------------
+def scrape_shk(max_reports: int = 0):
+    """
+    Scrape SHK marine investigation reports (English versions).
+    Strategy: parse the shipping investigations page, find report PDFs.
+    """
+    out_dir = BASE_DIR / "shk"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    base_url = "https://www.havkom.se"
+    list_url = f"{base_url}/en/investigations/shipping"
+
+    print(f"\n{'='*60}")
+    print("SHK — Swedish Accident Investigation Authority")
+    print(f"{'='*60}")
+
+    downloaded = 0
+    page = 1
+
+    while True:
+        if 0 < max_reports <= downloaded:
+            break
+
+        url = f"{list_url}?page={page}" if page > 1 else list_url
+        print(f"\nFetching listing page {page}...")
+
+        soup = _fetch_page(url)
+        if not soup:
+            break
+
+        report_links = []
+        pdf_links = []
+
+        for a_tag in soup.find_all("a", href=True):
+            href = a_tag["href"]
+            if href.lower().endswith(".pdf"):
+                full_url = urljoin(base_url, href)
+                if full_url not in pdf_links:
+                    pdf_links.append(full_url)
+            elif "/en/investigations/" in href and href != "/en/investigations/shipping" and "?" not in href:
+                full_url = urljoin(base_url, href)
+                if full_url not in report_links and full_url != list_url:
+                    report_links.append(full_url)
+
+        if not report_links and not pdf_links:
+            print(f"  No more reports on page {page}.")
+            break
+
+        print(f"  Found {len(pdf_links)} PDFs and {len(report_links)} report pages")
+
+        for pdf_url in pdf_links:
+            if 0 < max_reports <= downloaded:
+                break
+            filename = _sanitize_filename(pdf_url.split("/")[-1])
+            if _download_pdf(pdf_url, out_dir / filename):
+                downloaded += 1
+            time.sleep(DELAY_BETWEEN_REQUESTS)
+
+        for report_url in report_links:
+            if 0 < max_reports <= downloaded:
+                break
+            time.sleep(DELAY_BETWEEN_REQUESTS)
+            report_soup = _fetch_page(report_url)
+            if not report_soup:
+                continue
+
+            pdf_found = False
+            for a_tag in report_soup.find_all("a", href=True):
+                href = a_tag["href"]
+                if href.lower().endswith(".pdf"):
+                    pdf_url = urljoin(report_url, href)
+                    filename = _sanitize_filename(pdf_url.split("/")[-1])
+                    if _download_pdf(pdf_url, out_dir / filename):
+                        downloaded += 1
+                        pdf_found = True
+                    time.sleep(DELAY_BETWEEN_REQUESTS)
+                    break
+
+            if not pdf_found:
+                slug = report_url.rstrip("/").split("/")[-1]
+                if _save_html_text(report_url, out_dir / f"{slug}.txt", report_soup):
+                    downloaded += 1
+
+        next_link = soup.find("a", string=re.compile(r"Next|Nästa|›|»", re.IGNORECASE))
+        if not next_link:
+            next_link = soup.find("a", class_=re.compile(r"next", re.IGNORECASE))
+        if not next_link:
+            next_link = soup.find("a", rel="next")
+        if not next_link:
+            break
+
+        page += 1
+
+    print(f"\nSHK: Downloaded {downloaded} reports to {out_dir}")
+    return downloaded
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+SCRAPERS = {
+    "maib": ("MAIB (UK)", scrape_maib),
+    "ntsb": ("NTSB (US)", scrape_ntsb),
+    "tsb": ("TSB (Canada)", scrape_tsb),
+    "uscg": ("USCG Marine Safety Alerts", scrape_uscg),
+    "atsb": ("ATSB (Australia)", scrape_atsb),
+    "dmaib": ("DMAIB (Denmark)", scrape_dmaib),
+    "bsu": ("BSU (Germany)", scrape_bsu),
+    "maib_digests": ("MAIB Safety Digests", scrape_maib_digests),
+    "jtsb": ("JTSB (Japan)", scrape_jtsb),
+    "shk": ("SHK (Sweden)", scrape_shk),
+}
+
+
 def main():
     parser = argparse.ArgumentParser(description="Download maritime accident investigation reports")
     parser.add_argument(
         "--source",
-        choices=["maib", "ntsb", "tsb", "all"],
+        choices=list(SCRAPERS.keys()) + ["all"],
         default="all",
         help="Which source to download from (default: all)",
     )
@@ -343,22 +919,29 @@ def main():
         default=0,
         help="Maximum reports per source (0 = unlimited)",
     )
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="List available sources and exit",
+    )
     args = parser.parse_args()
+
+    if args.list:
+        print("Available sources:")
+        for key, (name, _) in SCRAPERS.items():
+            print(f"  {key:15s} — {name}")
+        return
 
     print("Maritime Safety Report Scraper")
     print(f"Output directory: {BASE_DIR}")
     print(f"Source: {args.source} | Max per source: {args.max or 'unlimited'}")
 
     total = 0
+    sources = SCRAPERS.keys() if args.source == "all" else [args.source]
 
-    if args.source in ("maib", "all"):
-        total += scrape_maib(max_reports=args.max)
-
-    if args.source in ("ntsb", "all"):
-        total += scrape_ntsb(max_reports=args.max)
-
-    if args.source in ("tsb", "all"):
-        total += scrape_tsb(max_reports=args.max)
+    for source_key in sources:
+        name, scrape_fn = SCRAPERS[source_key]
+        total += scrape_fn(max_reports=args.max)
 
     print(f"\n{'='*60}")
     print(f"TOTAL: {total} reports downloaded")
