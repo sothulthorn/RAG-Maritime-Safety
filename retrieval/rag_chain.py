@@ -1,11 +1,12 @@
-"""RAG pipeline with query decomposition and answer verification.
+"""Explainable RAG pipeline with query decomposition, verification, and explanation.
 
 Full pipeline:
 1. Query decomposition (for complex questions)
 2. Hybrid retrieval + parent expansion + compression
-3. LLM generation with grounding prompt
+3. LLM generation with Chain-of-Thought grounding prompt
 4. Answer verification against source documents
-5. Return verified answer with sources and confidence
+5. Explainability: evidence citations + reasoning traces
+6. Return explainable answer with sources, confidence, evidence, and reasoning
 """
 
 import re
@@ -13,9 +14,13 @@ import re
 from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from config import LLM_MODEL, LLM_TEMPERATURE, RETRIEVAL_K, VERIFICATION_ENABLED
+from config import (
+    LLM_MODEL, LLM_TEMPERATURE, RETRIEVAL_K,
+    VERIFICATION_ENABLED, EXPLAINABILITY_ENABLED,
+)
 from retrieval.retriever import retrieve
 from retrieval.verifier import verify_answer
+from retrieval.explainer import generate_explanation
 
 SYSTEM_PROMPT = """You are a maritime safety expert assistant. Answer the question based ONLY on the provided context from official maritime safety documents and accident investigation reports.
 
@@ -26,14 +31,15 @@ Rules:
 4. When citing accident investigation findings, include the vessel name, incident type, and specific findings.
 5. Include specific details: regulation numbers, vessel names, dates, casualty figures, and technical details from the documents.
 6. If the context covers the topic partially, answer what you can and clearly state what aspects are not covered in the available documents.
-7. Do not guess or extrapolate beyond what the documents state."""
+7. Do not guess or extrapolate beyond what the documents state.
+8. Use Chain-of-Thought reasoning: think through the question step by step before providing your final answer."""
 
 CONTEXT_TEMPLATE = """Context:
 {context}
 
 Question: {question}
 
-Provide a detailed, well-structured answer with specific citations from the source documents above. If comparing topics, organize your answer by each topic with supporting evidence:"""
+Think through this step by step using the source documents, then provide a detailed, well-structured answer with specific citations. If comparing topics, organize your answer by each topic with supporting evidence:"""
 
 DECOMPOSITION_PROMPT = """Break down the following maritime safety question into 2-3 simpler sub-questions that would help retrieve relevant information. Return ONLY the sub-questions, one per line, no numbering or bullets.
 
@@ -121,34 +127,43 @@ def answer_question(
     k: int = RETRIEVAL_K,
     source_filter: str | None = None,
 ) -> dict:
-    """Run the full RAG pipeline with verification.
+    """Run the full Explainable RAG pipeline.
 
     Pipeline:
     1. Decompose complex queries into sub-queries
     2. Retrieve relevant chunks (hybrid + rerank + parent expansion + compression)
-    3. Generate answer with grounding prompt
+    3. Generate answer with Chain-of-Thought grounding prompt
     4. Verify answer against source documents
-    5. Return verified answer with confidence and sources
+    5. Generate explainability output (evidence + reasoning traces)
+    6. Return explainable answer with confidence, sources, evidence, and reasoning
 
     Returns:
-        dict with "answer", "sources", "confidence", "verified", "verification_details"
+        dict with:
+        - answer: the final answer text
+        - sources: list of source metadata
+        - confidence: HIGH/MEDIUM/LOW/UNVERIFIED
+        - verified: bool
+        - verification_details: raw verification output
+        - evidence: list of evidence citations (claim -> source -> quote)
+        - unsupported_claims: claims not found in sources
+        - reasoning_steps: Chain-of-Thought reasoning steps
+        - key_principles: maritime safety principles underpinning the answer
+        - explanation_raw: raw explanation output for debugging
     """
     # 1. Retrieve (with optional decomposition)
     if _is_complex_query(query):
         sub_queries = _decompose_query(query)
-        # Also include the original query for direct matches
         all_queries = [query] + sub_queries
         all_docs = []
         seen_content = set()
         for sq in all_queries:
-            # Fetch more per sub-query for complex questions
             docs = retrieve(sq, k=k * 2, source_filter=source_filter)
             for doc in docs:
                 key = doc.page_content[:100]
                 if key not in seen_content:
                     seen_content.add(key)
                     all_docs.append(doc)
-        docs = all_docs[:k * 3]  # allow more context for complex queries
+        docs = all_docs[:k * 3]
     else:
         docs = retrieve(query, k=k, source_filter=source_filter)
 
@@ -159,10 +174,16 @@ def answer_question(
             "confidence": "LOW",
             "verified": False,
             "verification_details": "",
+            "evidence": [],
+            "unsupported_claims": [],
+            "reasoning_steps": [],
+            "key_principles": [],
+            "explanation_raw": "",
         }
 
     # 2. Format context and generate answer
     context = _format_context(docs)
+    sources = _extract_sources(docs)
 
     llm = ChatOllama(model=LLM_MODEL, temperature=LLM_TEMPERATURE)
     messages = [
@@ -185,10 +206,38 @@ def answer_question(
         was_verified = False
         verification_details = ""
 
+    # 4. Generate explainability output
+    if EXPLAINABILITY_ENABLED:
+        explanation = generate_explanation(
+            answer=final_answer,
+            context=context,
+            question=query,
+            sources=sources,
+        )
+        evidence = explanation["evidence"]
+        unsupported_claims = explanation["unsupported_claims"]
+        reasoning_steps = explanation["reasoning_steps"]
+        key_principles = explanation["key_principles"]
+        explanation_raw = (
+            f"=== Evidence ===\n{explanation['evidence_raw']}\n\n"
+            f"=== Reasoning ===\n{explanation['reasoning_raw']}"
+        )
+    else:
+        evidence = []
+        unsupported_claims = []
+        reasoning_steps = []
+        key_principles = []
+        explanation_raw = ""
+
     return {
         "answer": final_answer,
-        "sources": _extract_sources(docs),
+        "sources": sources,
         "confidence": confidence,
         "verified": was_verified,
         "verification_details": verification_details,
+        "evidence": evidence,
+        "unsupported_claims": unsupported_claims,
+        "reasoning_steps": reasoning_steps,
+        "key_principles": key_principles,
+        "explanation_raw": explanation_raw,
     }

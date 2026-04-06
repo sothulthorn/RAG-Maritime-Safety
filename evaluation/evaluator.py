@@ -1,5 +1,12 @@
 """
-Evaluation pipeline: runs test questions through RAG and plain LLM, then scores both.
+Explainable RAG evaluation pipeline: runs test questions through RAG and plain LLM,
+then scores both using the four-metric evaluation framework.
+
+Metrics:
+1. Retrieval Accuracy (Recall/Precision/F1)
+2. Answer Correctness (Fact Coverage + LLM Judge)
+3. Faithfulness (No Hallucinations)
+4. Explainability Score (Citation Accuracy + Reasoning Clarity)
 
 Usage:
     python -m evaluation.evaluator                  # Run full evaluation
@@ -24,6 +31,13 @@ from evaluation.metrics import compute_all_metrics
 
 
 RESULTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
+
+METRIC_NAMES = [
+    "retrieval_accuracy",
+    "answer_correctness",
+    "faithfulness",
+    "explainability",
+]
 
 
 def _ask_plain_llm(question: str) -> str:
@@ -52,6 +66,8 @@ def evaluate_single(test_case: dict, use_llm_judge: bool = True) -> dict:
     rag_time = time.time() - rag_start
     rag_answer = rag_result["answer"]
     rag_sources = rag_result["sources"]
+    rag_evidence = rag_result.get("evidence", [])
+    rag_reasoning = rag_result.get("reasoning_steps", [])
 
     # Get context for LLM judge
     rag_docs = retrieve(question)
@@ -64,6 +80,8 @@ def evaluate_single(test_case: dict, use_llm_judge: bool = True) -> dict:
         key_facts=key_facts,
         source_keywords=source_keywords,
         context=rag_context,
+        evidence=rag_evidence,
+        reasoning_steps=rag_reasoning,
         use_llm_judge=use_llm_judge,
     )
 
@@ -76,10 +94,12 @@ def evaluate_single(test_case: dict, use_llm_judge: bool = True) -> dict:
     plain_metrics = compute_all_metrics(
         question=question,
         answer=plain_answer,
-        sources=[],  # plain LLM has no real sources
+        sources=[],
         key_facts=key_facts,
         source_keywords=source_keywords,
-        context=rag_context,  # evaluate against same ground truth context
+        context=rag_context,
+        evidence=[],
+        reasoning_steps=[],
         use_llm_judge=use_llm_judge,
     )
 
@@ -91,12 +111,16 @@ def evaluate_single(test_case: dict, use_llm_judge: bool = True) -> dict:
         "rag": {
             "answer": rag_answer,
             "sources": rag_sources,
+            "evidence": rag_evidence,
+            "reasoning_steps": rag_reasoning,
             "metrics": rag_metrics,
             "response_time": round(rag_time, 2),
         },
         "plain_llm": {
             "answer": plain_answer,
             "sources": [],
+            "evidence": [],
+            "reasoning_steps": [],
             "metrics": plain_metrics,
             "response_time": round(plain_time, 2),
         },
@@ -105,20 +129,14 @@ def evaluate_single(test_case: dict, use_llm_judge: bool = True) -> dict:
 
 def compute_summary(results: list[dict]) -> dict:
     """Compute aggregate metrics across all test cases."""
-    metric_names = [
-        "key_fact_coverage",
-        "citation_accuracy",
-        "source_grounding",
-        "faithfulness_score",
-        "hallucination_score",
-        "relevance_score",
-    ]
-
     summary = {"rag": {}, "plain_llm": {}}
 
     for model in ["rag", "plain_llm"]:
-        for metric in metric_names:
-            values = [r[model]["metrics"].get(metric, 0) for r in results]
+        for metric in METRIC_NAMES:
+            values = [
+                r[model]["metrics"].get(metric, {}).get("combined", 0)
+                for r in results
+            ]
             if values:
                 summary[model][metric] = {
                     "mean": round(sum(values) / len(values), 3),
@@ -131,13 +149,13 @@ def compute_summary(results: list[dict]) -> dict:
 
     # Compute win/loss/tie for each metric
     summary["comparison"] = {}
-    for metric in metric_names:
+    for metric in METRIC_NAMES:
         rag_wins = 0
         plain_wins = 0
         ties = 0
         for r in results:
-            rag_val = r["rag"]["metrics"].get(metric, 0)
-            plain_val = r["plain_llm"]["metrics"].get(metric, 0)
+            rag_val = r["rag"]["metrics"].get(metric, {}).get("combined", 0)
+            plain_val = r["plain_llm"]["metrics"].get(metric, {}).get("combined", 0)
             if abs(rag_val - plain_val) < 0.05:
                 ties += 1
             elif rag_val > plain_val:
@@ -158,8 +176,11 @@ def compute_summary(results: list[dict]) -> dict:
         summary["by_category"][cat] = {}
         for model in ["rag", "plain_llm"]:
             summary["by_category"][cat][model] = {}
-            for metric in metric_names:
-                values = [r[model]["metrics"].get(metric, 0) for r in cat_results]
+            for metric in METRIC_NAMES:
+                values = [
+                    r[model]["metrics"].get(metric, {}).get("combined", 0)
+                    for r in cat_results
+                ]
                 if values:
                     summary["by_category"][cat][model][metric] = round(
                         sum(values) / len(values), 3
@@ -174,7 +195,7 @@ def run_evaluation(max_questions: int = 0, use_llm_judge: bool = True) -> dict:
     if max_questions > 0:
         test_cases = test_cases[:max_questions]
 
-    print(f"Running evaluation on {len(test_cases)} questions...")
+    print(f"Running Explainable RAG evaluation on {len(test_cases)} questions...")
     print(f"LLM Judge: {'enabled' if use_llm_judge else 'disabled'}")
 
     results = []
@@ -190,6 +211,7 @@ def run_evaluation(max_questions: int = 0, use_llm_judge: bool = True) -> dict:
         "model": LLM_MODEL,
         "num_questions": len(results),
         "llm_judge_enabled": use_llm_judge,
+        "evaluation_framework": "Explainable RAG (4-metric)",
         "summary": summary,
         "results": results,
     }
@@ -202,7 +224,7 @@ def run_evaluation(max_questions: int = 0, use_llm_judge: bool = True) -> dict:
         json.dump(output, f, indent=2, ensure_ascii=False)
 
     print(f"\n{'='*60}")
-    print("EVALUATION COMPLETE")
+    print("EXPLAINABLE RAG EVALUATION COMPLETE")
     print(f"{'='*60}")
     _print_summary(summary)
     print(f"\nFull results saved to: {output_path}")
@@ -216,12 +238,10 @@ def _print_summary(summary: dict):
     print("-" * 60)
 
     metric_labels = {
-        "key_fact_coverage": "Key Fact Coverage",
-        "citation_accuracy": "Citation Accuracy",
-        "source_grounding": "Source Grounding",
-        "faithfulness_score": "Faithfulness",
-        "hallucination_score": "Non-Hallucination",
-        "relevance_score": "Relevance",
+        "retrieval_accuracy": "Retrieval Accuracy",
+        "answer_correctness": "Answer Correctness",
+        "faithfulness": "Faithfulness",
+        "explainability": "Explainability",
     }
 
     for metric, label in metric_labels.items():
@@ -241,7 +261,7 @@ def _print_summary(summary: dict):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run RAG evaluation pipeline")
+    parser = argparse.ArgumentParser(description="Run Explainable RAG evaluation pipeline")
     parser.add_argument("--max", type=int, default=0, help="Max questions to evaluate (0=all)")
     parser.add_argument("--no-llm-judge", action="store_true", help="Skip LLM-as-judge scoring")
     args = parser.parse_args()

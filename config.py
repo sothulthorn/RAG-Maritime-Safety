@@ -31,6 +31,9 @@ COMPRESSION_ENABLED = True
 # Answer verification
 VERIFICATION_ENABLED = True
 
+# Explainability settings
+EXPLAINABILITY_ENABLED = True
+
 # Retrieval settings
 RETRIEVAL_K = 5               # final results returned
 RETRIEVAL_FETCH_K = 20         # candidates fetched before reranking

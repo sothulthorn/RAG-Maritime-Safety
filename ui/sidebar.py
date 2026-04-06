@@ -19,7 +19,7 @@ def _get_embedding_fn():
 
 def render_sidebar():
     """Render the document management sidebar."""
-    st.sidebar.header("Maritime Safety RAG")
+    st.sidebar.header("Explainable Maritime Safety RAG")
 
     # --- Source Filter ---
     st.sidebar.subheader("Source Filter")
@@ -70,7 +70,9 @@ def render_sidebar():
         "3. Parent-Child Retrieval\n"
         "4. Contextual Compression\n"
         "5. Query Decomposition\n"
-        "6. Answer Verification"
+        "6. Answer Verification\n"
+        "7. Evidence/Citation Extraction\n"
+        "8. Chain-of-Thought Reasoning Traces"
     )
 
     # --- Ingest Button ---

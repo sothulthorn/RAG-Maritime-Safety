@@ -1,30 +1,30 @@
 """
-Streamlit evaluation report page.
+Explainable RAG Evaluation Report — Streamlit dashboard.
+
+Visualizes the four-metric evaluation framework:
+1. Retrieval Accuracy
+2. Answer Correctness
+3. Faithfulness
+4. Explainability Score
 
 Usage:
     streamlit run evaluation/report.py
 """
 
 import json
-import os
 from pathlib import Path
 
 import streamlit as st
+import pandas as pd
 
 RESULTS_DIR = Path(__file__).parent / "results"
 
-
-def _load_latest_results() -> dict | None:
-    """Load the most recent evaluation results."""
-    if not RESULTS_DIR.exists():
-        return None
-
-    files = sorted(RESULTS_DIR.glob("eval_*.json"), reverse=True)
-    if not files:
-        return None
-
-    with open(files[0], "r", encoding="utf-8") as f:
-        return json.load(f)
+METRIC_LABELS = {
+    "retrieval_accuracy": "Retrieval Accuracy",
+    "answer_correctness": "Answer Correctness",
+    "faithfulness": "Faithfulness",
+    "explainability": "Explainability",
+}
 
 
 def _results_list() -> list[Path]:
@@ -35,10 +35,9 @@ def _results_list() -> list[Path]:
 
 
 def main():
-    st.set_page_config(page_title="RAG Evaluation Report", page_icon="📊", layout="wide")
-    st.title("RAG vs Plain LLM — Evaluation Report")
+    st.set_page_config(page_title="Explainable RAG Evaluation", page_icon="📊", layout="wide")
+    st.title("Explainable RAG — Evaluation Dashboard")
 
-    # Select results file
     result_files = _results_list()
     if not result_files:
         st.error("No evaluation results found. Run the evaluation first:")
@@ -58,28 +57,31 @@ def main():
     results = data["results"]
 
     # --- Header Info ---
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     col1.metric("Model", data["model"])
-    col2.metric("Questions Evaluated", data["num_questions"])
+    col2.metric("Questions", data["num_questions"])
     col3.metric("LLM Judge", "Enabled" if data.get("llm_judge_enabled") else "Disabled")
+    col4.metric("Framework", data.get("evaluation_framework", "Explainable RAG"))
+
+    st.divider()
+
+    # --- Evaluation Dashboard (4 metrics overview) ---
+    st.header("Evaluation Dashboard")
+
+    dash_cols = st.columns(4)
+    for i, (metric_key, label) in enumerate(METRIC_LABELS.items()):
+        rag_val = summary["rag"].get(metric_key, {}).get("mean", 0)
+        with dash_cols[i]:
+            st.metric(label, f"{rag_val:.0%}")
+            st.progress(rag_val)
 
     st.divider()
 
     # --- Overall Comparison Table ---
-    st.header("Overall Comparison")
+    st.header("RAG vs Plain LLM Comparison")
 
-    metric_labels = {
-        "key_fact_coverage": "Key Fact Coverage",
-        "citation_accuracy": "Citation Accuracy",
-        "source_grounding": "Source Grounding",
-        "faithfulness_score": "Faithfulness",
-        "hallucination_score": "Non-Hallucination",
-        "relevance_score": "Relevance",
-    }
-
-    # Build comparison data
     comparison_data = []
-    for metric, label in metric_labels.items():
+    for metric, label in METRIC_LABELS.items():
         rag_val = summary["rag"].get(metric, {}).get("mean", 0)
         plain_val = summary["plain_llm"].get(metric, {}).get("mean", 0)
         diff = rag_val - plain_val
@@ -97,15 +99,14 @@ def main():
 
     st.table(comparison_data)
 
-    # --- Visual Comparison ---
+    # --- Visual Comparison Chart ---
     st.header("Score Comparison Chart")
     chart_data = {}
-    for metric, label in metric_labels.items():
+    for metric, label in METRIC_LABELS.items():
         rag_val = summary["rag"].get(metric, {}).get("mean", 0)
         plain_val = summary["plain_llm"].get(metric, {}).get("mean", 0)
         chart_data[label] = {"RAG": rag_val, "Plain LLM": plain_val}
 
-    import pandas as pd
     chart_df = pd.DataFrame(chart_data).T
     st.bar_chart(chart_df)
 
@@ -127,7 +128,7 @@ def main():
     for cat, cat_data in categories.items():
         with st.expander(f"Category: {cat.replace('_', ' ').title()}"):
             cat_comparison = []
-            for metric, label in metric_labels.items():
+            for metric, label in METRIC_LABELS.items():
                 rag_val = cat_data.get("rag", {}).get(metric, 0)
                 plain_val = cat_data.get("plain_llm", {}).get(metric, 0)
                 cat_comparison.append({
@@ -162,10 +163,27 @@ def main():
                             source_label += f" (p.{page})"
                         st.caption(f"- {source_label}")
 
+                # Evidence citations
+                rag_evidence = result["rag"].get("evidence", [])
+                if rag_evidence:
+                    st.markdown("**Evidence Citations:**")
+                    for ev in rag_evidence:
+                        st.caption(
+                            f"- *{ev.get('claim', '')}* → "
+                            f"{ev.get('source', '')} — \"{ev.get('quote', '')}\""
+                        )
+
+                # Reasoning trace
+                rag_reasoning = result["rag"].get("reasoning_steps", [])
+                if rag_reasoning:
+                    st.markdown("**Reasoning Trace:**")
+                    for j, step in enumerate(rag_reasoning, 1):
+                        st.caption(f"Step {j}: {step}")
+
                 st.markdown("**Scores:**")
                 metrics = result["rag"]["metrics"]
-                for metric, label in metric_labels.items():
-                    val = metrics.get(metric, 0)
+                for metric, label in METRIC_LABELS.items():
+                    val = metrics.get(metric, {}).get("combined", 0)
                     st.progress(val, text=f"{label}: {val:.0%}")
 
             with col2:
@@ -173,40 +191,46 @@ def main():
                 st.markdown(result["plain_llm"]["answer"])
                 st.caption(f"Response time: {result['plain_llm']['response_time']}s")
 
-                st.markdown("**No sources cited** (no retrieval)")
+                st.markdown("**No sources, evidence, or reasoning** (no retrieval)")
 
                 st.markdown("**Scores:**")
                 metrics = result["plain_llm"]["metrics"]
-                for metric, label in metric_labels.items():
-                    val = metrics.get(metric, 0)
+                for metric, label in METRIC_LABELS.items():
+                    val = metrics.get(metric, {}).get("combined", 0)
                     st.progress(val, text=f"{label}: {val:.0%}")
 
-            if result["rag"]["metrics"].get("reasoning"):
-                st.info(f"**RAG Judge Reasoning:** {result['rag']['metrics']['reasoning']}")
-            if result["plain_llm"]["metrics"].get("reasoning"):
-                st.warning(f"**Plain LLM Judge Reasoning:** {result['plain_llm']['metrics']['reasoning']}")
+            # Judge reasoning
+            for model_key, model_label in [("rag", "RAG"), ("plain_llm", "Plain LLM")]:
+                for metric_key in METRIC_LABELS:
+                    reasoning = result[model_key]["metrics"].get(metric_key, {}).get("reasoning", "")
+                    if reasoning:
+                        st.caption(f"{model_label} {METRIC_LABELS[metric_key]}: {reasoning}")
 
     # --- Key Takeaway ---
     st.divider()
     st.header("Key Takeaway")
 
-    rag_fact = summary["rag"].get("key_fact_coverage", {}).get("mean", 0)
-    plain_fact = summary["plain_llm"].get("key_fact_coverage", {}).get("mean", 0)
-    rag_cite = summary["rag"].get("citation_accuracy", {}).get("mean", 0)
-    plain_cite = summary["plain_llm"].get("citation_accuracy", {}).get("mean", 0)
-    rag_hall = summary["rag"].get("hallucination_score", {}).get("mean", 0)
-    plain_hall = summary["plain_llm"].get("hallucination_score", {}).get("mean", 0)
+    rag_scores = {
+        metric: summary["rag"].get(metric, {}).get("mean", 0)
+        for metric in METRIC_LABELS
+    }
+    plain_scores = {
+        metric: summary["plain_llm"].get(metric, {}).get("mean", 0)
+        for metric in METRIC_LABELS
+    }
 
     st.markdown(f"""
-    | Metric | RAG | Plain LLM | Advantage |
-    |---|---|---|---|
-    | Key Fact Coverage | {rag_fact:.0%} | {plain_fact:.0%} | **{'+' if rag_fact > plain_fact else ''}{(rag_fact - plain_fact)*100:.0f}pp** |
-    | Citation Accuracy | {rag_cite:.0%} | {plain_cite:.0%} | **{'+' if rag_cite > plain_cite else ''}{(rag_cite - plain_cite)*100:.0f}pp** |
-    | Non-Hallucination | {rag_hall:.0%} | {plain_hall:.0%} | **{'+' if rag_hall > plain_hall else ''}{(rag_hall - plain_hall)*100:.0f}pp** |
+| Metric | RAG | Plain LLM | Advantage |
+|---|---|---|---|
+| Retrieval Accuracy | {rag_scores['retrieval_accuracy']:.0%} | {plain_scores['retrieval_accuracy']:.0%} | **{'+' if rag_scores['retrieval_accuracy'] > plain_scores['retrieval_accuracy'] else ''}{(rag_scores['retrieval_accuracy'] - plain_scores['retrieval_accuracy'])*100:.0f}pp** |
+| Answer Correctness | {rag_scores['answer_correctness']:.0%} | {plain_scores['answer_correctness']:.0%} | **{'+' if rag_scores['answer_correctness'] > plain_scores['answer_correctness'] else ''}{(rag_scores['answer_correctness'] - plain_scores['answer_correctness'])*100:.0f}pp** |
+| Faithfulness | {rag_scores['faithfulness']:.0%} | {plain_scores['faithfulness']:.0%} | **{'+' if rag_scores['faithfulness'] > plain_scores['faithfulness'] else ''}{(rag_scores['faithfulness'] - plain_scores['faithfulness'])*100:.0f}pp** |
+| Explainability | {rag_scores['explainability']:.0%} | {plain_scores['explainability']:.0%} | **{'+' if rag_scores['explainability'] > plain_scores['explainability'] else ''}{(rag_scores['explainability'] - plain_scores['explainability'])*100:.0f}pp** |
 
-    The RAG system provides **verifiable, source-grounded answers** from actual maritime safety documents,
-    while the plain LLM generates plausible-sounding answers that cannot be traced to real sources.
-    """)
+The Explainable RAG system provides **verifiable, source-grounded answers** with transparent
+reasoning traces and evidence citations — not just WHAT the answer is, but WHY it was given
+and WHERE it comes from.
+""")
 
 
 if __name__ == "__main__":

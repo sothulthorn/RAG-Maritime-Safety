@@ -1,4 +1,4 @@
-"""Chat interface components."""
+"""Chat interface components for Explainable RAG."""
 
 import streamlit as st
 
@@ -7,8 +7,8 @@ from retrieval.rag_chain import answer_question
 
 def render_chat():
     """Render the chat interface."""
-    st.header("Maritime Safety Assistant")
-    st.caption("Ask questions about maritime safety regulations and accident investigation reports")
+    st.header("Explainable Maritime Safety Assistant")
+    st.caption("Ask questions about maritime safety — get answers with evidence, reasoning, and source citations")
 
     # Initialize chat history
     if "messages" not in st.session_state:
@@ -28,7 +28,7 @@ def render_chat():
             st.markdown(prompt)
 
         with st.chat_message("assistant"):
-            with st.spinner("Searching documents and generating answer..."):
+            with st.spinner("Searching documents, generating answer, and building explanation..."):
                 try:
                     source_filter = st.session_state.get("source_filter")
                     result = answer_question(prompt, source_filter=source_filter)
@@ -37,12 +37,20 @@ def render_chat():
                     confidence = result.get("confidence", "")
                     verified = result.get("verified", False)
                     verification_details = result.get("verification_details", "")
+                    evidence = result.get("evidence", [])
+                    unsupported_claims = result.get("unsupported_claims", [])
+                    reasoning_steps = result.get("reasoning_steps", [])
+                    key_principles = result.get("key_principles", [])
                 except Exception as e:
                     answer = f"Error generating answer: {e}\n\nMake sure Ollama is running with the llama3 model (`ollama serve` and `ollama pull llama3`)."
                     sources = []
                     confidence = ""
                     verified = False
                     verification_details = ""
+                    evidence = []
+                    unsupported_claims = []
+                    reasoning_steps = []
+                    key_principles = []
 
             st.markdown(answer)
 
@@ -53,6 +61,10 @@ def render_chat():
                 "confidence": confidence,
                 "verified": verified,
                 "verification_details": verification_details,
+                "evidence": evidence,
+                "unsupported_claims": unsupported_claims,
+                "reasoning_steps": reasoning_steps,
+                "key_principles": key_principles,
             }
             _render_metadata(msg_data)
 
@@ -60,11 +72,15 @@ def render_chat():
 
 
 def _render_metadata(msg: dict):
-    """Render confidence badge, sources, and verification details."""
+    """Render confidence, evidence, reasoning, sources, and verification."""
     confidence = msg.get("confidence", "")
     verified = msg.get("verified", False)
     sources = msg.get("sources", [])
     verification_details = msg.get("verification_details", "")
+    evidence = msg.get("evidence", [])
+    unsupported_claims = msg.get("unsupported_claims", [])
+    reasoning_steps = msg.get("reasoning_steps", [])
+    key_principles = msg.get("key_principles", [])
 
     # Confidence badge
     if confidence:
@@ -74,6 +90,36 @@ def _render_metadata(msg: dict):
         if verified:
             badge += " | :blue[Verified]"
         st.caption(badge)
+
+    # Evidence / Citations
+    if evidence:
+        with st.expander("Evidence / Citations"):
+            for ev in evidence:
+                claim = ev.get("claim", "")
+                source = ev.get("source", "")
+                quote = ev.get("quote", "")
+                st.markdown(f"**Claim:** {claim}")
+                st.markdown(f"**Source:** {source}")
+                if quote:
+                    st.caption(f'"{quote}"')
+                st.divider()
+
+            if unsupported_claims:
+                st.warning("**Unsupported Claims:**")
+                for claim in unsupported_claims:
+                    st.caption(f"- {claim}")
+
+    # Reasoning Trace
+    if reasoning_steps:
+        with st.expander("Reasoning Trace"):
+            for i, step in enumerate(reasoning_steps, 1):
+                st.markdown(f"**Step {i}:** {step}")
+
+            if key_principles:
+                st.divider()
+                st.markdown("**Key Maritime Safety Principles:**")
+                for principle in key_principles:
+                    st.markdown(f"- {principle}")
 
     # Sources
     if sources:
