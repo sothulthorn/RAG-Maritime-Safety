@@ -26,13 +26,13 @@ QUESTION: {question}
 ANSWER TO ANALYZE:
 {answer}
 
-For each key claim or fact in the answer, identify the specific source document that supports it.
+The answer contains footnote numbers like [1], [2], [3], etc. For each footnote number, identify the specific claim it refers to and the source document that supports it. List them in the SAME ORDER as the footnote numbers in the answer.
 
 Respond in this EXACT format:
 EVIDENCE:
-- Claim: [specific claim from the answer] | Source: [document name, page/section] | Quote: [brief relevant quote from source]
-- Claim: [specific claim from the answer] | Source: [document name, page/section] | Quote: [brief relevant quote from source]
-(list all claims)
+- Claim: [the claim marked with [1]] | Source: [document name, page/section] | Quote: [brief relevant quote from source]
+- Claim: [the claim marked with [2]] | Source: [document name, page/section] | Quote: [brief relevant quote from source]
+(continue for all footnote numbers in order)
 
 UNSUPPORTED_CLAIMS:
 - [any claims not found in sources, or "None"]"""

@@ -19,23 +19,13 @@ def _get_embedding_fn():
 
 def render_sidebar():
     """Render the document management sidebar."""
-    st.sidebar.header("Explainable Maritime Safety RAG")
+    # st.sidebar.header("Explainable Maritime Safety RAG")
 
-    # --- Source Filter ---
-    st.sidebar.subheader("Source Filter")
-    filter_options = {"All Sources": None}
-    for key, label in SOURCE_ORGS.items():
-        filter_options[label] = key
-
-    selected_label = st.sidebar.selectbox(
-        "Filter answers by source",
-        options=list(filter_options.keys()),
-        key="source_filter_select",
-    )
-    st.session_state.source_filter = filter_options[selected_label]
+    # Initialize source filter (no UI filter needed)
+    if "source_filter" not in st.session_state:
+        st.session_state.source_filter = None
 
     # --- Collection Stats ---
-    st.sidebar.divider()
     st.sidebar.subheader("Document Database")
 
     child_count = get_collection_count(_get_embedding_fn())
@@ -60,20 +50,6 @@ def render_sidebar():
                 st.markdown(f"**{label}**: {len(files)} files")
     else:
         st.sidebar.warning("No data files found in data/ directory. Run the scraper first.")
-
-    # --- Pipeline Info ---
-    st.sidebar.divider()
-    st.sidebar.subheader("Pipeline Features")
-    st.sidebar.caption(
-        "1. Hybrid Search (Vector + BM25)\n"
-        "2. Cross-Encoder Reranking\n"
-        "3. Parent-Child Retrieval\n"
-        "4. Contextual Compression\n"
-        "5. Query Decomposition\n"
-        "6. Answer Verification\n"
-        "7. Evidence/Citation Extraction\n"
-        "8. Chain-of-Thought Reasoning Traces"
-    )
 
     # --- Ingest Button ---
     st.sidebar.divider()

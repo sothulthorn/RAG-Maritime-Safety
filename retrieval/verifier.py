@@ -32,7 +32,7 @@ VERIFIED_CLAIMS:
 
 CONFIDENCE: [HIGH/MEDIUM/LOW]
 CORRECTIONS: [List any corrections needed, or "None needed"]
-VERIFIED_ANSWER: [Rewrite the answer keeping ONLY supported claims. Remove or flag any unsupported claims. Keep the same style and structure.]"""
+VERIFIED_ANSWER: [Rewrite the answer keeping ONLY supported claims. Remove or flag any unsupported claims. Keep the same style and structure. IMPORTANT: Use footnote-style citations [1], [2], [3] etc. at the end of sentences — do NOT put filenames or page numbers inline in the text. Do NOT add a References section.]"""
 
 
 def verify_answer(answer: str, context: str) -> dict:

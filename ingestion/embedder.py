@@ -2,6 +2,7 @@
 
 import hashlib
 
+import chromadb
 from langchain_core.embeddings import Embeddings
 from langchain_chroma import Chroma
 from sentence_transformers import SentenceTransformer
@@ -13,6 +14,16 @@ from config import (
     CHROMA_COLLECTION_NAME,
     CHROMA_PARENT_COLLECTION,
 )
+
+_chroma_client = None
+
+
+def _get_chroma_client() -> chromadb.ClientAPI:
+    """Get or create a shared PersistentClient for ChromaDB."""
+    global _chroma_client
+    if _chroma_client is None:
+        _chroma_client = chromadb.PersistentClient(path=CHROMA_PERSIST_DIR)
+    return _chroma_client
 
 
 class LocalEmbeddings(Embeddings):
@@ -44,7 +55,7 @@ def get_vectorstore(embedding_fn: Embeddings | None = None) -> Chroma:
     return Chroma(
         collection_name=CHROMA_COLLECTION_NAME,
         embedding_function=embedding_fn,
-        persist_directory=CHROMA_PERSIST_DIR,
+        client=_get_chroma_client(),
     )
 
 
@@ -56,7 +67,7 @@ def get_parent_store(embedding_fn: Embeddings | None = None) -> Chroma:
     return Chroma(
         collection_name=CHROMA_PARENT_COLLECTION,
         embedding_function=embedding_fn,
-        persist_directory=CHROMA_PERSIST_DIR,
+        client=_get_chroma_client(),
     )
 
 
